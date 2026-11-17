@@ -1,0 +1,19 @@
+[package]
+name = "anaquel-preview"
+description = "Local preview server of Anaquel, bound to the loopback interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anaquel-diagnostics.workspace = true
+axum.workspace = true
+notify.workspace = true
+notify-debouncer-full.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

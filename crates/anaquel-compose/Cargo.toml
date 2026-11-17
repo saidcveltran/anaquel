@@ -1,0 +1,22 @@
+[package]
+name = "anaquel-compose"
+description = "Turns Anaquel Markdown into an HTML fragment, a table of contents and plain text"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anaquel-catalog.workspace = true
+anaquel-diagnostics.workspace = true
+anaquel-directive.workspace = true
+pulldown-cmark.workspace = true
+unicode-normalization.workspace = true
+
+[dev-dependencies]
+anaquel-schema.workspace = true
+
+[lints]
+workspace = true

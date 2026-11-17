@@ -1,0 +1,18 @@
+[package]
+name = "anaquel-render"
+description = "Template rendering of pages for Anaquel themes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anaquel-diagnostics.workspace = true
+anaquel-theme.workspace = true
+minijinja.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

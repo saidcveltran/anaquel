@@ -1,0 +1,81 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/anaquel-diagnostics",
+    "crates/anaquel-schema",
+    "crates/anaquel-directive",
+    "crates/anaquel-catalog",
+    "crates/anaquel-compose",
+    "crates/anaquel-theme",
+    "crates/anaquel-render",
+    "crates/anaquel-assets",
+    "crates/anaquel-emit",
+    "crates/anaquel-search",
+    "crates/anaquel-pipeline",
+    "crates/anaquel-preview",
+    "crates/anaquel",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/saidcveltran/anaquel"
+publish = false
+
+[workspace.dependencies]
+anaquel-diagnostics = { path = "crates/anaquel-diagnostics" }
+anaquel-schema = { path = "crates/anaquel-schema" }
+anaquel-directive = { path = "crates/anaquel-directive" }
+anaquel-catalog = { path = "crates/anaquel-catalog" }
+anaquel-compose = { path = "crates/anaquel-compose" }
+anaquel-theme = { path = "crates/anaquel-theme" }
+anaquel-render = { path = "crates/anaquel-render" }
+anaquel-assets = { path = "crates/anaquel-assets" }
+anaquel-emit = { path = "crates/anaquel-emit" }
+anaquel-search = { path = "crates/anaquel-search" }
+anaquel-pipeline = { path = "crates/anaquel-pipeline" }
+anaquel-preview = { path = "crates/anaquel-preview" }
+
+axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio"] }
+blake3 = "=1.8.7"
+notify = "=8.2.2"
+notify-debouncer-full = "=0.7.0"
+tokio = { version = "=1.54.1", features = ["rt-multi-thread", "net"] }
+camino = "=1.2.6"
+clap = { version = "=4.6.7", features = ["derive"] }
+minijinja = { version = "=3.1.0", features = ["serde"] }
+pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"] }
+rayon = "=1.12.0"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+thiserror = "=2.0.21"
+toml = "=1.2.1"
+unicode-normalization = "=0.1.26"
+walkdir = "=2.5.0"
+yaml-rust2 = "=0.13.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

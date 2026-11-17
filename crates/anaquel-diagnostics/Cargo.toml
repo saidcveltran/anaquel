@@ -1,0 +1,15 @@
+[package]
+name = "anaquel-diagnostics"
+description = "User-facing diagnostics with stable codes for the Anaquel documentation engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

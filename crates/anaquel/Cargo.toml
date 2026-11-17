@@ -1,0 +1,23 @@
+[package]
+name = "anaquel"
+description = "Documentation engine for static libraries of books"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "anaquel"
+path = "src/main.rs"
+
+[dependencies]
+anaquel-diagnostics.workspace = true
+anaquel-pipeline.workspace = true
+anaquel-preview.workspace = true
+anaquel-search.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true

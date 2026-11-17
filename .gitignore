@@ -1,0 +1,7 @@
+/target/
+/dist/
+.anaquel/
+*.tmp
+*~
+.DS_Store
+Thumbs.db

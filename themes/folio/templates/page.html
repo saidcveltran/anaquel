@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "partials/nav.html" as nav %}
+{% block shell %}
+<nav class="sidebar" id="sidebar" aria-label="Volume">
+  <p class="sidebar-title"><a href="{{ page.volume.url }}">{{ page.volume.title }}</a></p>
+  {{ nav.tree(page.nav) }}
+</nav>
+<main id="content" class="content">
+  {% if page.breadcrumbs %}
+  <ol class="crumbs" aria-label="Breadcrumb">
+    {% for crumb in page.breadcrumbs %}<li><a href="{{ crumb.url }}">{{ crumb.title }}</a></li>{% endfor %}
+  </ol>
+  {% endif %}
+  <article class="prose" data-pagefind-body>
+    <h1>{{ page.title }}</h1>
+    {% if page.description %}<p class="lead">{{ page.description }}</p>{% endif %}
+    {{ page.content | safe }}
+    {% if page.children %}
+    <ul class="listing">
+      {% for child in page.children %}
+      <li><a href="{{ child.url }}"><strong>{{ child.title }}</strong>{% if child.description %}<span>{{ child.description }}</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </article>
+  <nav class="pager" aria-label="Pages">
+    {% if page.prev %}<a class="prev" href="{{ page.prev.url }}"><small>Previous</small><span>{{ page.prev.title }}</span></a>{% else %}<span></span>{% endif %}
+    {% if page.next %}<a class="next" href="{{ page.next.url }}"><small>Next</small><span>{{ page.next.title }}</span></a>{% endif %}
+  </nav>
+</main>
+{% if page.toc %}
+<aside class="toc" aria-label="On this page">
+  <p>On this page</p>
+  <ul>
+    {% for item in page.toc %}<li class="level-{{ item.level }}"><a href="#{{ item.anchor }}">{{ item.text }}</a></li>{% endfor %}
+  </ul>
+</aside>
+{% endif %}
+{% endblock %}
