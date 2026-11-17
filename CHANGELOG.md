@@ -33,6 +33,8 @@ All notable changes to this project are written here. The format follows
 - Syntax highlighting of fenced code with `syntect` 5.3.0 (pure Rust regex engine, no C code). The output uses class names only, so the Content-Security-Policy is unchanged; the theme colours them in both schemes. Blocks over 100 KB, unknown languages and grammar failures stay plain escaped code. `shell`, `console` and `csharp` are accepted as names.
 - `tools/third_party.py` writes `THIRD-PARTY.md` from `cargo tree`; CI fails when the file is out of date.
 
+- A hand-written attack suite (`crates/anaquel-pipeline/src/xss.rs`): hostile text in every place that accepts text must build into pages that a tag scanner finds clean (only listed tags, no event or style attributes, no script with a body, no dangerous URL, frames only from the sandboxed video players); about 100 payloads (script, data, file and protocol-relative links, entity and tab tricks, raw HTML of every kind, directive abuse, bad embed hosts, hostile front matter) must each be refused with nothing written.
+
 ### Fixed
 
 - `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
@@ -41,6 +43,7 @@ All notable changes to this project are written here. The format follows
 
 ### Changed
 
+- Names that become part of an address are checked. A page or folder name, a `slug` and every segment of an alias may hold letters of any script, digits and `- _ . ~ + @`; a space, quote, `#`, `?`, `%`, `&`, `;`, bracket, control or invisible character is an error with the rename to make (a page may set `slug` instead of renaming the file). Before, a file called `c#.md` or `my page.md` was written under an address that browsers read differently, and an alias with a quote or `<` passed `check` and then failed to write on Windows. Static files may not have `#`, `%` or `?` in their names. This can turn a library that built before into one that does not; the messages say which name to change.
 - A leading `# Title` that repeats the page title is left out of the page body, because the theme already prints the title. A `#` heading that says something else, or that is not the first block, stays.
 - Only pages named `terms.md` or `glossary.md` define terms. A `###` heading in ordinary prose used to define one and made duplicates an error.
 - `CHANGELOG.md` follows Keep a Changelog 1.1.
@@ -61,3 +64,5 @@ All notable changes to this project are written here. The format follows
 - There is no Linux arm64 archive.
 - Directive limits: the opening line must start at column 0 with the name right after the colons; a fenced code block indented by four spaces or more is not tracked, so a `:::` line inside one is read as a directive. `include`, `variables` and `updates` are not implemented. The tab script and the directive styles were looked at in screenshots at desktop width only; the embed frame was seen to load, but playing a video was not tested. Pages without `description` still get one made from the whole page text, which starts with the title.
 - Highlighting uses the grammars bundled with `syntect`: there is none for TOML, TypeScript, JSX, PowerShell, Dockerfile, Kotlin, Swift or INI, so those blocks are shown plain. Adding grammars means bundling and licensing more files; not done.
+- The attack suite checks the output with a scanner written for it, not with a browser. It does not run script and does not cover browsers' own parsing quirks beyond the cases listed in it.
+- Images may come from any https address (`img-src` allows `https:`), so a page can make a reader's browser contact another site. An SVG file in a library is copied as it is; the site-wide Content-Security-Policy is what stops script in it, and only when the host serves the `_headers` file.

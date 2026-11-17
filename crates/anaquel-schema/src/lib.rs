@@ -5,9 +5,11 @@
 
 mod front_matter;
 mod manifest;
+mod names;
 
 pub use front_matter::{FrontMatter, Parsed, parse_page};
 pub use manifest::{LibraryManifest, VolumeManifest, check_engine};
+pub use names::url_segment_problem;
 
 /// Schema number this build understands for `anaquel.toml`.
 pub const SCHEMA: u32 = 1;

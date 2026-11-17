@@ -176,6 +176,17 @@ fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSour
                 continue;
             }
         };
+        if let Some(bad) = relative_text.chars().find(|c| matches!(c, '#' | '%' | '?')) {
+            report.push(
+                Diagnostic::error(
+                    Code::IO,
+                    format!("`{bad}` in a file or folder name would end or change its address"),
+                )
+                .with_help("rename it; letters, digits, spaces and `- _ . ( ) , ;` are fine")
+                .at(format!("{VOLUMES_DIR}/{slug}/{relative_text}")),
+            );
+            continue;
+        }
         if relative_text.to_ascii_lowercase().ends_with(".md") {
             if let Some(text) = read_page(
                 item.path(),

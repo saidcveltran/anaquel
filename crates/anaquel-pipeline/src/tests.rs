@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 
-struct Scratch(PathBuf);
+pub(crate) struct Scratch(pub(crate) PathBuf);
 
 impl Scratch {
-    fn new(name: &str) -> Self {
+    pub(crate) fn new(name: &str) -> Self {
         let dir =
             std::env::temp_dir().join(format!("anaquel-pipeline-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -14,13 +14,13 @@ impl Scratch {
         Self(dir)
     }
 
-    fn put(&self, path: &str, text: &str) {
+    pub(crate) fn put(&self, path: &str, text: &str) {
         let full = self.0.join(path);
         fs::create_dir_all(full.parent().unwrap()).unwrap();
         fs::write(full, text).unwrap();
     }
 
-    fn options(&self) -> Options {
+    pub(crate) fn options(&self) -> Options {
         Options {
             root: self.0.clone(),
             dist: self.0.join("dist"),
@@ -28,11 +28,11 @@ impl Scratch {
         }
     }
 
-    fn read(&self, path: &str) -> String {
+    pub(crate) fn read(&self, path: &str) -> String {
         fs::read_to_string(self.0.join("dist").join(path)).unwrap()
     }
 
-    fn exists(&self, path: &str) -> bool {
+    pub(crate) fn exists(&self, path: &str) -> bool {
         Path::new(&self.0.join("dist").join(path)).exists()
     }
 }
@@ -43,7 +43,7 @@ impl Drop for Scratch {
     }
 }
 
-fn library(s: &Scratch) {
+pub(crate) fn library(s: &Scratch) {
     s.put(
         "anaquel.toml",
         "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\nbase_url = \"https://docs.example\"\n",
