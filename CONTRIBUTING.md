@@ -11,7 +11,17 @@ cargo test --workspace
 cargo run -p anaquel -- check examples/reference-library --strict
 ```
 
-All four must pass on Linux, Windows and macOS (CI runs them).
+All four must pass on Linux, Windows and macOS (CI runs them). CI also runs three small scripts
+that need only Python 3:
+
+```text
+python3 -I tools/naming_gate.py     # no crate, file, folder or type called utils, helpers, common...
+python3 -I tools/public_gate.py     # no private paths, keys, e-mail addresses or traces of tools
+python3 -I tools/test_gates.py      # tests of the two scripts above
+```
+
+The names that `naming_gate.py` refuses are listed at the top of that file. A file that cannot be
+renamed (Cargo names `lib.rs` and `main.rs`) is already allowed.
 
 ## Code rules
 

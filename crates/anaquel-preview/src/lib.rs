@@ -48,7 +48,7 @@ pub struct Hooks {
     pub log: Box<dyn Fn(&str) + Send + Sync>,
 }
 
-struct Shared {
+struct ServedSite {
     dir: PathBuf,
     version: AtomicU64,
 }
@@ -61,7 +61,7 @@ struct Shared {
 pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
     let hooks = Arc::new(hooks);
     (hooks.log)(&(hooks.rebuild)());
-    let shared = Arc::new(Shared {
+    let shared = Arc::new(ServedSite {
         dir: config.dir.clone(),
         version: AtomicU64::new(1),
     });
@@ -138,7 +138,7 @@ fn is_source(path: &Path, ignored: &[PathBuf]) -> bool {
 /// Content-Security-Policy above all) apply to every response, so a page that
 /// the policy would break fails here too, not only after publishing.
 #[allow(clippy::unused_async, reason = "axum handlers must be async")]
-async fn handle(State(shared): State<Arc<Shared>>, headers: HeaderMap, uri: Uri) -> Response {
+async fn handle(State(shared): State<Arc<ServedSite>>, headers: HeaderMap, uri: Uri) -> Response {
     let mut response = route(&shared, &headers, &uri);
     if let Ok(text) = std::fs::read_to_string(shared.dir.join("_headers")) {
         for (name, value) in global_headers(&text) {
@@ -168,7 +168,7 @@ fn global_headers(text: &str) -> Vec<(header::HeaderName, header::HeaderValue)> 
     found
 }
 
-fn route(shared: &Shared, headers: &HeaderMap, uri: &Uri) -> Response {
+fn route(shared: &ServedSite, headers: &HeaderMap, uri: &Uri) -> Response {
     if !host_is_local(headers) {
         return plain(StatusCode::BAD_REQUEST, "bad host");
     }

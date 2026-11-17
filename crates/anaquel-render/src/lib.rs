@@ -99,7 +99,7 @@ pub struct PageView {
 }
 
 #[derive(Serialize)]
-struct Context<'a> {
+struct TemplateInput<'a> {
     site: &'a SiteView,
     page: &'a PageView,
     assets: &'a BTreeMap<String, String>,
@@ -145,7 +145,7 @@ impl Renderer {
             Diagnostic::error(Code::TEMPLATE, format!("template `{template}`: {e}"))
         })?;
         let html = compiled
-            .render(Value::from(Serde(Context { site, page, assets })))
+            .render(Value::from(Serde(TemplateInput { site, page, assets })))
             .map_err(|e| {
                 Diagnostic::error(Code::TEMPLATE, format!("rendering `{template}`: {e:#}"))
             })?;

@@ -87,6 +87,20 @@ jobs:
       - name: No metadata in images
         run: python3 -I tools/check_images.py
 
+  gates:
+    name: naming and public gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tests of the gates
+        run: python3 -I tools/test_gates.py
+      - name: Names say what things are for
+        run: python3 -I tools/naming_gate.py
+      - name: Nothing private in the tree or in the history
+        run: python3 -I tools/public_gate.py
+
   fuzz:
     name: fuzz (10 minutes)
     runs-on: ubuntu-latest
