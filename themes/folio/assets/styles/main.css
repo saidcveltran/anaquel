@@ -1,5 +1,14 @@
 /* folio: default theme of Anaquel. Plain CSS, no build step. */
 
+/* Literata (SIL OFL 1.1), Latin subset. The build swaps the placeholder URL scheme for the fingerprinted URL. */
+@font-face {
+  font-family: Literata;
+  src: url("asset:fonts/literata-latin.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --bg: #ffffff;

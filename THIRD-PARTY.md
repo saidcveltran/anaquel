@@ -1,0 +1,130 @@
+# Third-party software
+
+Anaquel is built from the Rust crates below. Each is used under the licence
+shown; the full text is in the crate's own package. Generated from
+`cargo metadata` on 2026-11-17.
+
+| Crate | Version | Licence |
+| --- | --- | --- |
+| anstream | 1.0.0 | MIT OR Apache-2.0 |
+| anstyle | 1.0.14 | MIT OR Apache-2.0 |
+| anstyle-parse | 1.0.0 | MIT OR Apache-2.0 |
+| anstyle-query | 1.1.5 | MIT OR Apache-2.0 |
+| anstyle-wincon | 3.0.11 | MIT OR Apache-2.0 |
+| arraydeque | 0.5.1 | MIT/Apache-2.0 |
+| arrayvec | 0.7.8 | MIT OR Apache-2.0 |
+| atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
+| axum | 0.8.9 | MIT |
+| axum-core | 0.5.6 | MIT |
+| bitflags | 2.13.2 | MIT OR Apache-2.0 |
+| blake3 | 1.8.7 | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception |
+| bytes | 1.12.1 | MIT |
+| cc | 1.11.2 | MIT OR Apache-2.0 |
+| cfg-if | 1.0.5 | MIT OR Apache-2.0 |
+| clap | 4.6.7 | MIT OR Apache-2.0 |
+| clap_builder | 4.6.7 | MIT OR Apache-2.0 |
+| clap_derive | 4.6.7 | MIT OR Apache-2.0 |
+| clap_lex | 1.1.2 | MIT OR Apache-2.0 |
+| colorchoice | 1.0.5 | MIT OR Apache-2.0 |
+| constant_time_eq | 0.4.2 | CC0-1.0 OR MIT-0 OR Apache-2.0 |
+| cpufeatures | 0.3.1 | MIT OR Apache-2.0 |
+| crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 |
+| crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 |
+| crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
+| either | 1.19.0 | MIT OR Apache-2.0 |
+| encoding_rs | 0.8.35 | (Apache-2.0 OR MIT) AND BSD-3-Clause |
+| equivalent | 1.0.3 | Apache-2.0 OR MIT |
+| file-id | 0.2.3 | MIT OR Apache-2.0 |
+| find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 |
+| foldhash | 0.2.0 | Zlib |
+| futures-core | 0.3.34 | MIT OR Apache-2.0 |
+| futures-task | 0.3.34 | MIT OR Apache-2.0 |
+| futures-util | 0.3.34 | MIT OR Apache-2.0 |
+| hashbrown | 0.17.1 | MIT OR Apache-2.0 |
+| hashlink | 0.12.2 | MIT OR Apache-2.0 |
+| heck | 0.5.0 | MIT OR Apache-2.0 |
+| http | 1.5.0 | MIT OR Apache-2.0 |
+| http-body | 1.1.0 | MIT |
+| http-body-util | 0.1.5 | MIT |
+| httparse | 1.10.1 | MIT OR Apache-2.0 |
+| httpdate | 1.0.3 | MIT OR Apache-2.0 |
+| hyper | 1.12.0 | MIT |
+| hyper-util | 0.1.21 | MIT |
+| indexmap | 2.14.2 | Apache-2.0 OR MIT |
+| inotify | 0.11.5 | ISC |
+| inotify-sys | 0.1.8 | ISC |
+| is_terminal_polyfill | 1.70.2 | MIT OR Apache-2.0 |
+| itoa | 1.0.19 | MIT OR Apache-2.0 |
+| kqueue | 1.2.1 | MIT |
+| kqueue-sys | 1.1.2 | MIT |
+| libc | 0.2.191 | MIT OR Apache-2.0 |
+| log | 0.4.35 | MIT OR Apache-2.0 |
+| matchit | 0.8.4 | MIT AND BSD-3-Clause |
+| memchr | 2.8.3 | Unlicense OR MIT |
+| mime | 0.3.18 | MIT OR Apache-2.0 |
+| minijinja | 3.1.0 | Apache-2.0 |
+| mio | 1.2.5 | MIT |
+| notify | 8.2.2 | CC0-1.0 |
+| notify-debouncer-full | 0.7.0 | MIT OR Apache-2.0 |
+| notify-types | 2.3.1 | MIT OR Apache-2.0 |
+| objc2-core-foundation | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
+| objc2-core-services | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
+| once_cell_polyfill | 1.70.2 | MIT OR Apache-2.0 |
+| percent-encoding | 2.3.2 | MIT OR Apache-2.0 |
+| pin-project-lite | 0.2.17 | Apache-2.0 OR MIT |
+| proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
+| pulldown-cmark | 0.13.6 | MIT |
+| pulldown-cmark-escape | 0.11.0 | MIT |
+| quote | 1.0.47 | MIT OR Apache-2.0 |
+| rayon | 1.12.0 | MIT OR Apache-2.0 |
+| rayon-core | 1.13.0 | MIT OR Apache-2.0 |
+| same-file | 1.0.6 | Unlicense/MIT |
+| serde | 1.0.229 | MIT OR Apache-2.0 |
+| serde_core | 1.0.229 | MIT OR Apache-2.0 |
+| serde_derive | 1.0.229 | MIT OR Apache-2.0 |
+| serde_json | 1.0.154 | MIT OR Apache-2.0 |
+| serde_spanned | 1.1.3 | MIT OR Apache-2.0 |
+| shlex | 2.0.1 | MIT OR Apache-2.0 |
+| slab | 0.4.12 | MIT |
+| smallvec | 1.16.5 | MIT OR Apache-2.0 |
+| socket2 | 0.6.5 | MIT OR Apache-2.0 |
+| strsim | 0.11.1 | MIT |
+| syn | 3.0.10 | MIT OR Apache-2.0 |
+| sync_wrapper | 1.0.2 | Apache-2.0 |
+| tinyvec | 1.13.3 | Zlib OR Apache-2.0 OR MIT |
+| tokio | 1.54.1 | MIT |
+| tokio-macros | 2.7.2 | MIT |
+| toml | 1.2.1+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_datetime | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_parser | 1.1.5+spec-1.1.0 | MIT OR Apache-2.0 |
+| toml_writer | 1.2.0+spec-1.1.0 | MIT OR Apache-2.0 |
+| tower | 0.5.3 | MIT |
+| tower-layer | 0.3.3 | MIT |
+| tower-service | 0.3.3 | MIT |
+| unicase | 2.10.0 | MIT OR Apache-2.0 |
+| unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+| unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+| utf8parse | 0.2.2 | Apache-2.0 OR MIT |
+| walkdir | 2.5.0 | Unlicense/MIT |
+| wasi | 0.11.1+wasi-snapshot-preview1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
+| winapi-util | 0.1.11 | Unlicense OR MIT |
+| windows-link | 0.2.1 | MIT OR Apache-2.0 |
+| windows-sys | 0.60.2 | MIT OR Apache-2.0 |
+| windows-sys | 0.61.2 | MIT OR Apache-2.0 |
+| windows-targets | 0.53.5 | MIT OR Apache-2.0 |
+| windows_aarch64_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
+| windows_aarch64_msvc | 0.53.1 | MIT OR Apache-2.0 |
+| windows_i686_gnu | 0.53.1 | MIT OR Apache-2.0 |
+| windows_i686_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
+| windows_i686_msvc | 0.53.1 | MIT OR Apache-2.0 |
+| windows_x86_64_gnu | 0.53.1 | MIT OR Apache-2.0 |
+| windows_x86_64_gnullvm | 0.53.1 | MIT OR Apache-2.0 |
+| windows_x86_64_msvc | 0.53.1 | MIT OR Apache-2.0 |
+| winnow | 1.0.5 | MIT |
+| yaml-rust2 | 0.13.0 | MIT OR Apache-2.0 |
+| zmij | 1.0.23 | MIT |
+
+## Programs bundled with a release
+
+- Pagefind (MIT): the search indexer, shipped next to `anaquel` in release bundles.
+- Literata (SIL Open Font License 1.1): the reading font of the `folio` theme, embedded as a Latin subset converted to WOFF2 (`themes/folio/assets/fonts/`, licence text in `OFL.txt` there).

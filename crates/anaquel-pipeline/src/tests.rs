@@ -206,3 +206,29 @@ fn the_reference_library_builds_clean() {
     );
     assert!(outcome.pages >= 250, "{} pages", outcome.pages);
 }
+
+#[test]
+fn the_stylesheet_names_the_fingerprinted_font() {
+    let s = Scratch::new("font");
+    library(&s);
+    assert!(!build(&s.options()).report.has_errors());
+    let styles = s.0.join("dist/assets/styles");
+    let css_path = fs::read_dir(&styles)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let css = fs::read_to_string(css_path).unwrap();
+    assert!(
+        !css.contains("asset:"),
+        "placeholder left in the stylesheet"
+    );
+    let url = css
+        .split("url(\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .unwrap();
+    assert!(url.starts_with("/assets/fonts/literata-latin."), "{url}");
+    assert!(s.exists(url.trim_start_matches('/')));
+}

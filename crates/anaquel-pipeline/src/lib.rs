@@ -193,15 +193,24 @@ fn render_site(
     let renderer = Renderer::new(&theme)?;
     let site = views::site_view(catalog, search);
 
-    let mut asset_urls = BTreeMap::new();
+    let mut asset_urls: BTreeMap<String, String> = BTreeMap::new();
     let mut outputs = Vec::new();
-    for asset in &theme.assets {
-        let name = format!("assets/{}", fingerprinted_name(&asset.path, &asset.bytes));
+    // Stylesheets last: they may name other assets as `asset:<path>`, which
+    // becomes the fingerprinted URL before the stylesheet is fingerprinted itself.
+    let (styles, others): (Vec<_>, Vec<_>) = theme.assets.iter().partition(|a| is_css(&a.path));
+    for asset in others.into_iter().chain(styles) {
+        let bytes = if is_css(&asset.path) {
+            let mut text = String::from_utf8_lossy(&asset.bytes).into_owned();
+            for (path, url) in &asset_urls {
+                text = text.replace(&format!("asset:{path}"), url);
+            }
+            text.into_bytes()
+        } else {
+            asset.bytes.clone()
+        };
+        let name = format!("assets/{}", fingerprinted_name(&asset.path, &bytes));
         asset_urls.insert(asset.path.clone(), format!("/{name}"));
-        outputs.push(OutputFile {
-            path: name,
-            bytes: asset.bytes.clone(),
-        });
+        outputs.push(OutputFile { path: name, bytes });
     }
 
     let pages: Result<Vec<OutputFile>, Diagnostic> = analysis
@@ -277,6 +286,12 @@ fn render_site(
     }
     outputs.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(outputs)
+}
+
+fn is_css(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("css"))
 }
 
 /// `/a/b/` is served from `a/b/index.html`; a URL with a file name is the file.

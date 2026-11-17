@@ -94,6 +94,7 @@ impl Theme {
                 asset!("scripts/init.js"),
                 asset!("scripts/main.js"),
                 asset!("brand/mark.svg"),
+                asset!("fonts/literata-latin.woff2"),
             ],
         })
     }
@@ -128,5 +129,6 @@ mod tests {
         };
         assert!(size("styles/main.css") < 40 * 1024);
         assert!(size("scripts/main.js") + size("scripts/init.js") < 30 * 1024);
+        assert!(size("fonts/literata-latin.woff2") < 160 * 1024);
     }
 }

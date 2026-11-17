@@ -1,7 +1,7 @@
 use anaquel_catalog::{Catalog, Entry, ResolvedLink};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_directive::find_term_refs;
-use pulldown_cmark::{CowStr, Event, Parser, Tag, TagEnd, html};
+use pulldown_cmark::{CowStr, Event, HeadingLevel, Parser, Tag, TagEnd, html};
 
 use crate::heading::{Lines, options};
 
@@ -74,7 +74,42 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
     let mut code_depth = 0usize;
     let mut link_depth = 0usize;
 
+    // The theme prints the page title; a leading `# Title` that says the same
+    // thing would show it twice, so it is left out of the body.
+    let mut drop_h1 = entry
+        .headings
+        .first()
+        .is_some_and(|h| h.level == 1 && h.text == entry.title);
+    let mut dropping = false;
+
     for (event, range) in Parser::new_ext(&entry.body, options()).into_offset_iter() {
+        if dropping {
+            match &event {
+                Event::End(TagEnd::Heading(_)) => {
+                    dropping = false;
+                    plain.push(' ');
+                }
+                Event::Text(text) | Event::Code(text) => plain.push_str(text),
+                _ => {}
+            }
+            continue;
+        }
+        if drop_h1
+            && events.is_empty()
+            && buffer.is_empty()
+            && matches!(
+                event,
+                Event::Start(Tag::Heading {
+                    level: HeadingLevel::H1,
+                    ..
+                })
+            )
+        {
+            drop_h1 = false;
+            dropping = true;
+            headings.next();
+            continue;
+        }
         let scannable = code_depth == 0 && link_depth == 0;
         if let Event::Text(text) = &event {
             plain.push_str(text);

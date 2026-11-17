@@ -41,7 +41,12 @@ fn codes(c: &Composed) -> Vec<Code> {
 #[test]
 fn renders_basic_markdown_with_heading_ids() {
     let c = compose_page("# Title\n\nSome *text* and `code`.\n\n## Second part\n");
-    assert!(c.html.contains("<h1 id=\"title\">Title</h1>"), "{}", c.html);
+    assert!(
+        !c.html.contains("<h1"),
+        "the theme prints the title: {}",
+        c.html
+    );
+    assert!(c.html.starts_with("<p>Some"), "{}", c.html);
     assert!(c.html.contains("<h2 id=\"second-part\">"), "{}", c.html);
     assert!(c.html.contains("<em>text</em>"));
     assert_eq!(c.plain, "Title Some text and code. Second part");
@@ -106,6 +111,22 @@ fn tables_are_wrapped_for_scrolling() {
     assert!(
         c.html.trim_end().ends_with("</table></div>") || c.html.contains("</table>\n</div>"),
         "{}",
+        c.html
+    );
+}
+
+#[test]
+fn only_a_leading_h1_that_repeats_the_title_is_dropped() {
+    let c = compose_page("---\ntitle: Other name\n---\n# Title\n\ntext\n");
+    assert!(
+        c.html.contains("<h1"),
+        "kept, it says something else: {}",
+        c.html
+    );
+    let c = compose_page("text first\n\n# Title\n");
+    assert!(
+        c.html.contains("<h1"),
+        "kept, not the first block: {}",
         c.html
     );
 }
