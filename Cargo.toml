@@ -13,8 +13,11 @@ members = [
     "crates/anaquel-search",
     "crates/anaquel-pipeline",
     "crates/anaquel-preview",
+    "crates/anaquel-fuzzcheck",
     "crates/anaquel",
 ]
+# The fuzz targets need a nightly compiler and have their own lock file.
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.1.0"

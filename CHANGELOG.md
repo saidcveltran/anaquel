@@ -34,6 +34,7 @@ All notable changes to this project are written here. The format follows
 - `tools/third_party.py` writes `THIRD-PARTY.md` from `cargo tree`; CI fails when the file is out of date.
 
 - A hand-written attack suite (`crates/anaquel-pipeline/src/xss.rs`): hostile text in every place that accepts text must build into pages that a tag scanner finds clean (only listed tags, no event or style attributes, no script with a body, no dangerous URL, frames only from the sandboxed video players); about 100 payloads (script, data, file and protocol-relative links, entity and tab tricks, raw HTML of every kind, directive abuse, bad embed hosts, hostile front matter) must each be refused with nothing written.
+- Fuzzing: four `cargo-fuzz` targets in `fuzz/` (`directive_grammar`, `front_matter`, `url_policy`, `link_resolver`) and a CI job that runs each for 150 seconds, ten minutes in all, on Linux with a pinned nightly compiler. The checks live in the new crate `anaquel-fuzzcheck`, which also runs them over the seed files and about 20 000 mutations on every system in the ordinary test run.
 
 ### Fixed
 
@@ -66,3 +67,4 @@ All notable changes to this project are written here. The format follows
 - Highlighting uses the grammars bundled with `syntect`: there is none for TOML, TypeScript, JSX, PowerShell, Dockerfile, Kotlin, Swift or INI, so those blocks are shown plain. Adding grammars means bundling and licensing more files; not done.
 - The attack suite checks the output with a scanner written for it, not with a browser. It does not run script and does not cover browsers' own parsing quirks beyond the cases listed in it.
 - Images may come from any https address (`img-src` allows `https:`), so a page can make a reader's browser contact another site. An SVG file in a library is copied as it is; the site-wide Content-Security-Policy is what stops script in it, and only when the host serves the `_headers` file.
+- The fuzz targets were not run on the machine that wrote them (Windows cannot link the libFuzzer runtime); only the smoke test ran there. The first real run is the CI job. Ten minutes in all is a floor, not a guarantee: the parsers have not been fuzzed for hours.

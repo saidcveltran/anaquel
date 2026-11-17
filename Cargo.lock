@@ -81,6 +81,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "anaquel-fuzzcheck"
+version = "0.1.0"
+dependencies = [
+ "anaquel-catalog",
+ "anaquel-compose",
+ "anaquel-directive",
+ "anaquel-schema",
+]
+
+[[package]]
 name = "anaquel-pipeline"
 version = "0.1.0"
 dependencies = [
