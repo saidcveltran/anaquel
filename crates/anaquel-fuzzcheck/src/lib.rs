@@ -182,16 +182,80 @@ fn tags(html: &str) -> Vec<&str> {
     found
 }
 
-/// The first attribute that starts with a script, data or file URL in a tag of lower-case `html`.
-fn script_url_in_a_tag(html: &str) -> Option<String> {
-    let tags = tags(html);
-    for attribute in ["href", "src", "action", "formaction", "poster"] {
-        for quote in ["\"", "'", ""] {
-            for scheme in ["javascript:", "vbscript:", "data:", "file:"] {
-                let bad = format!("{attribute}={quote}{scheme}");
-                if tags.iter().any(|tag| tag.contains(&bad)) {
-                    return Some(bad);
+/// The attributes of one tag as (name, value) pairs; a value may be quoted or bare.
+fn attributes(tag: &str) -> Vec<(String, String)> {
+    let chars: Vec<char> = tag.chars().collect();
+    let length = chars.len();
+    let mut found = Vec::new();
+    let mut at = 0;
+    while at < length && !chars[at].is_whitespace() {
+        at += 1;
+    }
+    while at < length {
+        let before = at;
+        while at < length && (chars[at].is_whitespace() || chars[at] == '/') {
+            at += 1;
+        }
+        let start = at;
+        while at < length && !chars[at].is_whitespace() && !matches!(chars[at], '=' | '/') {
+            at += 1;
+        }
+        let name: String = chars[start..at].iter().collect();
+        while at < length && chars[at].is_whitespace() {
+            at += 1;
+        }
+        let mut value = String::new();
+        if at < length && chars[at] == '=' {
+            at += 1;
+            while at < length && chars[at].is_whitespace() {
+                at += 1;
+            }
+            if at < length && matches!(chars[at], '"' | '\'') {
+                let quote = chars[at];
+                at += 1;
+                while at < length && chars[at] != quote {
+                    value.push(chars[at]);
+                    at += 1;
                 }
+                at += 1;
+            } else {
+                while at < length && !chars[at].is_whitespace() {
+                    value.push(chars[at]);
+                    at += 1;
+                }
+            }
+        }
+        if !name.is_empty() {
+            found.push((name, value));
+        }
+        if at == before {
+            at += 1;
+        }
+    }
+    found
+}
+
+/// The first URL attribute of a tag of `html` whose value starts with a script, data or file
+/// scheme. Browsers ignore spaces, tabs and control characters inside a scheme, so they are
+/// dropped before the comparison.
+fn script_url_in_a_tag(html: &str) -> Option<String> {
+    for tag in tags(html) {
+        for (name, value) in attributes(tag) {
+            if !["href", "src", "action", "formaction", "poster"]
+                .contains(&name.to_lowercase().as_str())
+            {
+                continue;
+            }
+            let bare: String = value
+                .chars()
+                .filter(|c| !c.is_whitespace() && !c.is_control())
+                .collect::<String>()
+                .to_lowercase();
+            if ["javascript:", "vbscript:", "data:", "file:"]
+                .iter()
+                .any(|scheme| bare.starts_with(scheme))
+            {
+                return Some(format!("{name}={value}"));
             }
         }
     }
@@ -236,7 +300,7 @@ fn check_link(catalog: &Catalog, from: EntryId, href: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{script_url_in_a_tag, tags, url_policy};
+    use super::{attributes, script_url_in_a_tag, tags, url_policy};
 
     #[test]
     fn tags_are_read_with_their_quotes() {
@@ -258,10 +322,33 @@ mod tests {
         ] {
             assert!(script_url_in_a_tag(tag).is_some(), "{tag}");
         }
+        for harmless in [
+            "<p>formaction=\"vbscript:x\"</p>",
+            "<code class=\"language-ma formaction=vbscript:x\">",
+            "<a href=\"/data:x\" title=\"href=javascript:x\">",
+        ] {
+            assert_eq!(script_url_in_a_tag(harmless), None, "{harmless}");
+        }
+        for hidden in [
+            "<a HREF=\" java\tscript:x\">",
+            "<a href=\"\u{1}vbscript:x\">",
+        ] {
+            assert!(script_url_in_a_tag(hidden).is_some(), "{hidden}");
+        }
+    }
+
+    #[test]
+    fn attributes_are_split_into_names_and_values() {
         assert_eq!(
-            script_url_in_a_tag("<p>formaction=\"vbscript:x\"</p>"),
-            None
+            attributes("a href=\"x y\" hidden data-a='1' b=2 /"),
+            vec![
+                ("href".to_owned(), "x y".to_owned()),
+                ("hidden".to_owned(), String::new()),
+                ("data-a".to_owned(), "1".to_owned()),
+                ("b".to_owned(), "2".to_owned()),
+            ]
         );
+        assert_eq!(attributes("="), Vec::new());
     }
 
     #[test]
@@ -269,5 +356,8 @@ mod tests {
         // Found by the first CI fuzz run: the page shows these words, it does not run them.
         url_policy(b"formaction=\"vbscript:\0\0\0\0\0\0\0\x04u\0\0m\0\0\n");
         url_policy(b"href=\"javascript:alert(1)\" src='data:text/html,x'");
+        // Found by the second run: the words end up inside the class of a code block.
+        url_policy(b"[e others.\n\n`````ma\0\0,\0\0formaction=vbscript:\0\0*\0\x01\0&\0rg]]\n");
+        url_policy(b"```ma formaction=vbscript:\nx\n```\n");
     }
 }
