@@ -23,6 +23,8 @@ yanked = "deny"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# The crates of this workspace name each other by path, without a version; they are not published.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

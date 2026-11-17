@@ -21,6 +21,10 @@ All notable changes to this project are written here. The format follows
 - README in English and Spanish with banner, screenshots for both colour schemes, feature table, install table, comparison and a list of cases where Anaquel is the wrong choice.
 - Issue forms (bug, feature, translation, documentation), a pull request template and the Contributor Covenant 2.1 as `CODE_OF_CONDUCT.md`.
 
+### Fixed
+
+- `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
+
 ### Changed
 
 - A leading `# Title` that repeats the page title is left out of the page body, because the theme already prints the title. A `#` heading that says something else, or that is not the first block, stays.
@@ -29,7 +33,7 @@ All notable changes to this project are written here. The format follows
 
 ### Known limits
 
-- The CI workflow and `deny.toml` were pushed but their first run has not been read yet.
+- First CI run: Linux and Windows pass the format, clippy, test and sample-library steps; the licence check failed on the wildcard rule (fixed above) and its other rules were not reported as failing. The macOS job was still queued when this was written.
 - The theme was looked at in screenshots of one page at desktop width, in both colour schemes. Phone width has not been looked at. The theme toggle shows the same icon in both schemes.
 - The search UI was checked by script in a browser: results appear and there is no CSP violation.
 - Search needs the external `pagefind` program; it is not linked into the binary (the library tree is large and contains C code).
