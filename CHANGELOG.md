@@ -21,6 +21,9 @@ All notable changes to this project are written here. The format follows
 - README in English and Spanish with banner, screenshots for both colour schemes, feature table, install table, comparison and a list of cases where Anaquel is the wrong choice.
 - Issue forms (bug, feature, translation, documentation), a pull request template and the Contributor Covenant 2.1 as `CODE_OF_CONDUCT.md`.
 
+- Release setup with `dist` 0.34.0 (`dist-workspace.toml`, `.github/workflows/release.yml`): archives for Windows x86_64, Linux x86_64 and macOS (Intel and Apple Silicon), a shell and a PowerShell installer, a SHA-256 sum per archive and a GitHub build attestation. The workflow builds only when a version tag is pushed; on pull requests it only plans. No tag has been pushed and nothing has been released.
+- `tools/install_smoke.py` and an `install smoke` CI job on three systems: build the release archive, check its SHA-256, unpack it into an empty folder and run `version`, `new`, `check --strict` and `build` with the unpacked program.
+
 ### Fixed
 
 - `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
@@ -45,3 +48,5 @@ All notable changes to this project are written here. The format follows
 - The crates are not publishable yet: the theme files live outside the crate folders.
 - The conduct contact is the private security channel of GitHub, because the project has no public mailbox.
 - Publishing to Cloudflare Workers is not documented or tested.
+- The release archives are not signed by Windows or Apple (no spending), so SmartScreen and Gatekeeper will warn. The macOS and Linux archives and the installers were planned by `dist` but only the Windows archive was built and smoke-tested locally; the CI job covers the other two systems on its first run. There are no minisign signatures, no `upgrade` command and no `version --verbose` with the tagged commit yet (M2).
+- There is no Linux arm64 archive.
