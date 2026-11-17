@@ -35,6 +35,9 @@ jobs:
         run: cargo run -q --locked -p anaquel -- check examples/reference-library --strict
       - name: Check the directives library
         run: cargo run -q --locked -p anaquel -- check examples/directives --strict
+      - name: Third-party list is up to date
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 -I tools/third_party.py --check
       - name: Five-minute example from the README
         shell: bash
         run: |

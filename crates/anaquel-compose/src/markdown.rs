@@ -3,10 +3,11 @@ use std::slice::Iter;
 use anaquel_catalog::{Catalog, Entry, Heading, ResolvedLink};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_directive::{find_term_refs, parse_blocks};
-use pulldown_cmark::{CowStr, Event, HeadingLevel, Parser, Tag, TagEnd, html};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Parser, Tag, TagEnd, html};
 
 use crate::blocks::render_nodes;
 use crate::heading::{Lines, options};
+use crate::highlight::{highlight, language_of};
 
 /// A page after composition.
 #[derive(Debug)]
@@ -118,6 +119,8 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
     let mut code_depth = 0usize;
     let mut link_depth = 0usize;
     let mut dropping = false;
+    // A fenced block with a language is collected whole, then highlighted at its end.
+    let mut capture: Option<(CodeBlockKind<'_>, String, String)> = None;
 
     for (event, range) in Parser::new_ext(text, options()).into_offset_iter() {
         let at = base + range.start;
@@ -146,6 +149,11 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
             state.drop_h1 = false;
             dropping = true;
             state.headings.next();
+            continue;
+        }
+        if let (Some((_, _, code)), Event::Text(t)) = (capture.as_mut(), &event) {
+            state.plain.push_str(t);
+            code.push_str(t);
             continue;
         }
         let scannable = code_depth == 0 && link_depth == 0;
@@ -200,12 +208,35 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
             }
             Event::Start(Tag::CodeBlock(kind)) => {
                 code_depth += 1;
-                events.push(Event::Start(Tag::CodeBlock(kind)));
+                let language = match &kind {
+                    CodeBlockKind::Fenced(info) => language_of(info).map(str::to_owned),
+                    CodeBlockKind::Indented => None,
+                };
+                if let Some(language) = language {
+                    capture = Some((kind, language, String::new()));
+                } else {
+                    events.push(Event::Start(Tag::CodeBlock(kind)));
+                }
             }
             Event::End(TagEnd::CodeBlock) => {
                 code_depth = code_depth.saturating_sub(1);
                 state.plain.push(' ');
-                events.push(Event::End(TagEnd::CodeBlock));
+                if let Some((kind, language, code)) = capture.take() {
+                    if let Some(marked) = highlight(&language, &code) {
+                        events.push(Event::Html(
+                            format!(
+                                "<pre><code class=\"language-{language}\">{marked}</code></pre>\n"
+                            )
+                            .into(),
+                        ));
+                    } else {
+                        events.push(Event::Start(Tag::CodeBlock(kind)));
+                        events.push(Event::Text(code.into()));
+                        events.push(Event::End(TagEnd::CodeBlock));
+                    }
+                } else {
+                    events.push(Event::End(TagEnd::CodeBlock));
+                }
             }
             Event::Start(Tag::Link {
                 link_type,

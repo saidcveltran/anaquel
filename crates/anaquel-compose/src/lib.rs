@@ -9,6 +9,7 @@
 
 mod blocks;
 mod heading;
+mod highlight;
 mod markdown;
 
 pub use heading::headings_of;

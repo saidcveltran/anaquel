@@ -29,9 +29,12 @@ All notable changes to this project are written here. The format follows
 - `examples/directives`: one page per directive with its source and its result; CI checks it with `--strict`.
 - Theme styles for every directive in both colour schemes, and a small script that turns the tabs into an accessible tab list (arrow keys, Home, End). Without the script every tab is shown under its title.
 
+- Headings inside directive blocks get their anchors; the heading list is read in the same order the page is composed.
+- Syntax highlighting of fenced code with `syntect` 5.3.0 (pure Rust regex engine, no C code). The output uses class names only, so the Content-Security-Policy is unchanged; the theme colours them in both schemes. Blocks over 100 KB, unknown languages and grammar failures stay plain escaped code. `shell`, `console` and `csharp` are accepted as names.
+- `tools/third_party.py` writes `THIRD-PARTY.md` from `cargo tree`; CI fails when the file is out of date.
+
 ### Fixed
 
-- Headings inside directive blocks get their anchors, and the heading list is read in the same order the page is composed.
 - `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
 
 - The theme toggle showed a moon in both colour schemes. It now shows a moon in the light scheme and a sun in the dark one, chosen by CSS only.
@@ -57,3 +60,4 @@ All notable changes to this project are written here. The format follows
 - The release archives are not signed by Windows or Apple (no spending), so SmartScreen and Gatekeeper will warn. The macOS and Linux archives and the installers were planned by `dist` but only the Windows archive was built and smoke-tested locally; the CI job covers the other two systems on its first run. There are no minisign signatures, no `upgrade` command and no `version --verbose` with the tagged commit yet (M2).
 - There is no Linux arm64 archive.
 - Directive limits: the opening line must start at column 0 with the name right after the colons; a fenced code block indented by four spaces or more is not tracked, so a `:::` line inside one is read as a directive. `include`, `variables` and `updates` are not implemented. The tab script and the directive styles were looked at in screenshots at desktop width only; the embed frame was seen to load, but playing a video was not tested. Pages without `description` still get one made from the whole page text, which starts with the title.
+- Highlighting uses the grammars bundled with `syntect`: there is none for TOML, TypeScript, JSX, PowerShell, Dockerfile, Kotlin, Swift or INI, so those blocks are shown plain. Adding grammars means bundling and licensing more files; not done.

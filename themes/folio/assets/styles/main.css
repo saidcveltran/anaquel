@@ -28,6 +28,12 @@
   --hint-success: #1f7a4d;
   --hint-warning: #9a6700;
   --hint-danger: #b42318;
+  --syn-comment: #57606a;
+  --syn-keyword: #cf222e;
+  --syn-string: #0a3069;
+  --syn-number: #0550ae;
+  --syn-function: #6f42c1;
+  --syn-type: #953800;
 
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-prose: Literata, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
@@ -67,6 +73,12 @@
     --hint-success: #5fd08f;
     --hint-warning: #e3b341;
     --hint-danger: #f08a80;
+    --syn-comment: #8b949e;
+    --syn-keyword: #ff7b72;
+    --syn-string: #a5d6ff;
+    --syn-number: #79c0ff;
+    --syn-function: #d2a8ff;
+    --syn-type: #ffa657;
   }
 }
 
@@ -89,6 +101,12 @@
   --hint-success: #5fd08f;
   --hint-warning: #e3b341;
   --hint-danger: #f08a80;
+  --syn-comment: #8b949e;
+  --syn-keyword: #ff7b72;
+  --syn-string: #a5d6ff;
+  --syn-number: #79c0ff;
+  --syn-function: #d2a8ff;
+  --syn-type: #ffa657;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -906,4 +924,46 @@ a.card-title:focus-visible {
   border: 0;
   border-radius: 0.5rem;
   background: var(--bg-soft);
+}
+
+/* Syntax highlighting: class names written by the engine, colours from the tokens above */
+.s-comment {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+
+.s-string,
+.s-constant.s-character {
+  color: var(--syn-string);
+}
+
+.s-constant.s-numeric,
+.s-constant.s-language {
+  color: var(--syn-number);
+}
+
+.s-keyword,
+.s-storage {
+  color: var(--syn-keyword);
+}
+
+.s-keyword.s-operator {
+  color: inherit;
+}
+
+.s-entity.s-name.s-function,
+.s-support.s-function,
+.s-variable.s-function {
+  color: var(--syn-function);
+}
+
+.s-entity.s-name.s-type,
+.s-entity.s-name.s-class,
+.s-entity.s-name.s-struct,
+.s-entity.s-name.s-enum,
+.s-entity.s-name.s-trait,
+.s-entity.s-name.s-tag,
+.s-support.s-type,
+.s-support.s-class {
+  color: var(--syn-type);
 }

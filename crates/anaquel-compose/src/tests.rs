@@ -292,3 +292,55 @@ fn embeds_report_the_origins_their_frames_need() {
     );
     assert_eq!(compose_page("text\n").embed_origins, Vec::<String>::new());
 }
+
+#[test]
+fn fenced_code_with_a_known_language_is_highlighted_with_classes() {
+    let c = compose_page("```rust\nfn main() {}\n```\n");
+    assert!(
+        c.html
+            .starts_with("<pre><code class=\"language-rust\"><span class=\"s-"),
+        "{}",
+        c.html
+    );
+    assert!(!c.html.contains("style="), "{}", c.html);
+    assert_eq!(c.plain, "fn main() {}");
+}
+
+#[test]
+fn code_with_an_unknown_language_or_none_stays_plain_and_escaped() {
+    let c = compose_page("```nonsense\n<b>&\n```\n\n```\n<i>\n```\n\n    <u>\n");
+    assert!(
+        c.html
+            .contains("<pre><code class=\"language-nonsense\">&lt;b&gt;&amp;\n</code></pre>"),
+        "{}",
+        c.html
+    );
+    assert!(
+        c.html.contains("<pre><code>&lt;i&gt;\n</code></pre>"),
+        "{}",
+        c.html
+    );
+    assert!(c.html.contains("&lt;u&gt;"), "{}", c.html);
+    assert_eq!(codes(&c), []);
+}
+
+#[test]
+fn highlighted_html_code_cannot_inject_markup() {
+    let c = compose_page("```html\n<script>alert(1)</script><img src=x onerror=alert(1)>\n```\n");
+    assert!(!c.html.contains("<script>"), "{}", c.html);
+    assert!(!c.html.contains("<img"), "{}", c.html);
+    assert_eq!(codes(&c), []);
+}
+
+#[test]
+fn a_bad_language_name_cannot_break_out_of_the_class() {
+    let c = compose_page("```a\"onmouseover=\"x\ncode\n```\n");
+    assert!(!c.html.contains("onmouseover=\"x\""), "{}", c.html);
+}
+
+#[test]
+fn code_blocks_work_inside_directives() {
+    let c = compose_page(":::hint\n```rust\nlet x = 1;\n```\n:::\n");
+    assert!(c.html.contains("language-rust"), "{}", c.html);
+    assert_eq!(codes(&c), []);
+}
