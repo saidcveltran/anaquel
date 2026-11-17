@@ -1,0 +1,32 @@
+name: Translation
+description: Offer or correct a translation of the documentation or the theme texts.
+labels: [translation]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language and, if it matters, the region (for example `es-MX`).
+    validations:
+      required: true
+  - type: dropdown
+    id: what
+    attributes:
+      label: What
+      options: [README, Theme texts, Manual, Error messages, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: The file and the text to change, or the part you want to take on.
+    validations:
+      required: true
+  - type: checkboxes
+    id: licence
+    attributes:
+      label: Licence
+      options:
+        - label: I am the author of the text and agree that it is licensed under Apache-2.0.
+          required: true

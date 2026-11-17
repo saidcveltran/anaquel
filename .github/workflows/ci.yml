@@ -33,6 +33,24 @@ jobs:
         run: cargo test --workspace --locked
       - name: Check the sample library
         run: cargo run -q --locked -p anaquel -- check examples/reference-library --strict
+      - name: Five-minute example from the README
+        shell: bash
+        run: |
+          cargo build --locked -p anaquel
+          bin="$PWD/target/debug/anaquel"
+          cd "$RUNNER_TEMP"
+          "$bin" new my-docs --title "My docs"
+          "$bin" check my-docs --strict
+          "$bin" build my-docs --no-search
+          test -f my-docs/dist/index.html
+
+  images:
+    name: image metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No metadata in images
+        run: python3 -I tools/check_images.py
 
   deny:
     name: licenses and advisories

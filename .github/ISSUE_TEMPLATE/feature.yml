@@ -1,0 +1,31 @@
+name: Feature
+description: Something Anaquel should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and why you cannot today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you tried
+      description: Other tools or workarounds, and what was missing.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I read the "When not to use Anaquel" section of the README.
+          required: true
+        - label: This does not need an AI service, a paid service or a network call at build time.
+          required: true
