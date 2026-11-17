@@ -25,6 +25,8 @@ All notable changes to this project are written here. The format follows
 
 - `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
 
+- The theme toggle showed a moon in both colour schemes. It now shows a moon in the light scheme and a sun in the dark one, chosen by CSS only.
+
 ### Changed
 
 - A leading `# Title` that repeats the page title is left out of the page body, because the theme already prints the title. A `#` heading that says something else, or that is not the first block, stays.
@@ -34,7 +36,7 @@ All notable changes to this project are written here. The format follows
 ### Known limits
 
 - First CI run: Linux and Windows pass the format, clippy, test and sample-library steps; the licence check failed on the wildcard rule (fixed above) and its other rules were not reported as failing. The macOS job was still queued when this was written.
-- The theme was looked at in screenshots of one page at desktop width, in both colour schemes. Phone width has not been looked at. The theme toggle shows the same icon in both schemes.
+- The theme was looked at in screenshots of one page at desktop width, in both colour schemes. A window 500 px wide (single column, menu button, toggle) was also looked at. Narrower widths were not: the headless browser used cannot go below 500 px, so 390 px is unchecked.
 - The search UI was checked by script in a browser: results appear and there is no CSP violation.
 - Search needs the external `pagefind` program; it is not linked into the binary (the library tree is large and contains C code).
 - The `indexing_slicing` lint is not denied yet; fuzzing of the directive, compose and schema parsers is planned for M1.
