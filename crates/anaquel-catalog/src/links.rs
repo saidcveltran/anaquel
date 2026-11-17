@@ -144,7 +144,9 @@ pub(crate) fn resolve_term(
             format!("no term `{name}` in this volume"),
         )
         .at(origin.source.as_str())
-        .with_help("terms are the `###` headings of the volume's pages"));
+        .with_help(
+            "terms are the `###` headings of the volume's `terms.md` and `glossary.md` pages",
+        ));
     };
     let target = &catalog.entries[entry_id.0];
     let heading = &target.headings[*position];

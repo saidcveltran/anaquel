@@ -237,7 +237,8 @@ fn terms_resolve_inside_their_volume_only() {
             0,
             &[
                 ("_index.md", "# H\n"),
-                ("g.md", "# G\n### Cache\n### Disk cache\n"),
+                ("glossary.md", "# G\n### Cache\n### Disk cache\n"),
+                ("notes.md", "# Notes\n### Not a term\n"),
             ],
             &[],
         ),
@@ -246,8 +247,13 @@ fn terms_resolve_inside_their_volume_only() {
     assert!(!report.has_errors());
     let from = id_of(&c, "volumes/v/_index.md");
     let target = c.resolve_term(from, "cache").unwrap();
-    assert_eq!(target.url, "/v/g/#cache");
+    assert_eq!(target.url, "/v/glossary/#cache");
     assert_eq!(target.text, "Cache");
+    assert_eq!(
+        c.resolve_term(from, "not a term").unwrap_err().code,
+        Code::UNKNOWN_TERM,
+        "only glossary pages define terms"
+    );
     assert_eq!(
         c.resolve_term(from, "missing").unwrap_err().code,
         Code::UNKNOWN_TERM
@@ -267,8 +273,8 @@ fn duplicate_terms_are_reported() {
         0,
         &[
             ("_index.md", "# H\n"),
-            ("a.md", "### Cache\n"),
-            ("b.md", "### cache\n"),
+            ("terms.md", "### Cache\n"),
+            ("glossary.md", "### cache\n"),
         ],
         &[],
     )]);

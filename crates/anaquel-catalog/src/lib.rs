@@ -1,7 +1,7 @@
 //! Resolved tree of entries, links and terms of a library.
 //!
 //! The catalog is built from text already read from the disk. It decides each
-//! page's URL, order and neighbours, indexes the `###` terms of every volume
+//! page's URL, order and neighbours, indexes the `###` terms of every `terms.md` and `glossary.md` page
 //! and answers whether a link or a `[[term]]` points at something that exists.
 //! It never touches the file system and knows no Markdown parser: callers pass
 //! a function that lists the headings of a body.

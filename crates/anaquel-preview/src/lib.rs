@@ -134,8 +134,42 @@ fn is_source(path: &Path, ignored: &[PathBuf]) -> bool {
     !hidden_or_temporary
 }
 
+/// Answers like the real host: the rules of the built `_headers` file (the
+/// Content-Security-Policy above all) apply to every response, so a page that
+/// the policy would break fails here too, not only after publishing.
+#[allow(clippy::unused_async, reason = "axum handlers must be async")]
 async fn handle(State(shared): State<Arc<Shared>>, headers: HeaderMap, uri: Uri) -> Response {
-    if !host_is_local(&headers) {
+    let mut response = route(&shared, &headers, &uri);
+    if let Ok(text) = std::fs::read_to_string(shared.dir.join("_headers")) {
+        for (name, value) in global_headers(&text) {
+            response.headers_mut().insert(name, value);
+        }
+    }
+    response
+}
+
+/// The header lines under the `/*` rule of a Cloudflare `_headers` file.
+fn global_headers(text: &str) -> Vec<(header::HeaderName, header::HeaderValue)> {
+    let mut found = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if !line.starts_with([' ', '\t']) {
+            inside = line.trim() == "/*";
+        } else if inside
+            && let Some((name, value)) = line.trim().split_once(':')
+            && let (Ok(name), Ok(value)) = (
+                header::HeaderName::from_bytes(name.trim().as_bytes()),
+                header::HeaderValue::from_str(value.trim()),
+            )
+        {
+            found.push((name, value));
+        }
+    }
+    found
+}
+
+fn route(shared: &Shared, headers: &HeaderMap, uri: &Uri) -> Response {
+    if !host_is_local(headers) {
         return plain(StatusCode::BAD_REQUEST, "bad host");
     }
     let path = uri.path();
@@ -334,6 +368,15 @@ mod tests {
         assert!(!is_source(Path::new("/lib/dist/index.html"), &ignored));
         assert!(!is_source(Path::new("/lib/.git/HEAD"), &ignored));
         assert!(!is_source(Path::new("/lib/volumes/a/page.md~"), &ignored));
+    }
+
+    #[test]
+    fn only_the_global_rule_of_the_headers_file_is_applied() {
+        let text = "/*\n  X-One: 1\n  Content-Security-Policy: default-src 'self'\n/assets/*\n  X-Two: 2\n";
+        let found = global_headers(text);
+        let names: Vec<_> = found.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["x-one", "content-security-policy"]);
+        assert_eq!(found[1].1, "default-src 'self'");
     }
 
     #[test]

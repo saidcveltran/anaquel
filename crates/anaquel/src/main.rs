@@ -70,6 +70,9 @@ enum Command {
         /// Port on 127.0.0.1.
         #[arg(long, default_value_t = 1111)]
         port: u16,
+        /// Index for search on every rebuild (slower; needs `pagefind`).
+        #[arg(long)]
+        search: bool,
     },
     /// Show what this installation can and cannot do.
     Doctor,
@@ -105,7 +108,7 @@ fn main() -> ExitCode {
             }
             Err(diagnostic) => fail(&diagnostic),
         },
-        Command::Serve { root, port } => serve(&root, port),
+        Command::Serve { root, port, search } => serve(&root, port, search),
         Command::Doctor => doctor(),
         Command::Version => {
             say(&format!("anaquel {ENGINE_VERSION}"));
@@ -163,11 +166,11 @@ fn summarize(outcome: &Outcome, dist: Option<&Path>, strict: bool) -> ExitCode {
     }
 }
 
-fn status_line(root: &Path, dist: &Path) -> String {
+fn status_line(root: &Path, dist: &Path, search: bool) -> String {
     let outcome = build(&Options {
         root: root.to_path_buf(),
         dist: dist.to_path_buf(),
-        search: false,
+        search,
     });
     print_report(&outcome);
     let errors = outcome.report.count(Severity::Error);
@@ -178,7 +181,7 @@ fn status_line(root: &Path, dist: &Path) -> String {
     }
 }
 
-fn serve(root: &Path, port: u16) -> ExitCode {
+fn serve(root: &Path, port: u16, search: bool) -> ExitCode {
     let root = match root.canonicalize() {
         Ok(root) => root,
         Err(e) => {
@@ -198,7 +201,7 @@ fn serve(root: &Path, port: u16) -> ExitCode {
         port,
     };
     let hooks = Hooks {
-        rebuild: Box::new(move || status_line(&rebuild_root, &rebuild_dist)),
+        rebuild: Box::new(move || status_line(&rebuild_root, &rebuild_dist, search)),
         log: Box::new(say),
     };
     match anaquel_preview::serve(&config, hooks) {

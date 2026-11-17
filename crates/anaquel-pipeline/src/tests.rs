@@ -193,3 +193,16 @@ fn crlf_and_bom_sources_build_like_lf() {
             .contains("<h2 id=\"install\">")
     );
 }
+
+#[test]
+fn the_reference_library_builds_clean() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/reference-library");
+    let outcome = check(&root);
+    assert_eq!(
+        outcome.report.items().len(),
+        0,
+        "{:?}",
+        outcome.report.items()
+    );
+    assert!(outcome.pages >= 250, "{} pages", outcome.pages);
+}

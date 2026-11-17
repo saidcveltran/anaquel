@@ -350,6 +350,9 @@ fn index_terms(
     for volume in volumes {
         for id in &volume.order {
             let entry = &entries[id.0];
+            if !is_glossary(entry) {
+                continue;
+            }
             for (position, heading) in entry
                 .headings
                 .iter()
@@ -377,6 +380,13 @@ fn index_terms(
         }
     }
     lexicon
+}
+
+/// Only pages named `terms.md` or `glossary.md` define terms: a `###` heading
+/// in ordinary prose is just a heading.
+fn is_glossary(entry: &Entry) -> bool {
+    let name = entry.source.as_str().rsplit('/').next().unwrap_or_default();
+    matches!(name, "terms.md" | "glossary.md")
 }
 
 pub(crate) fn term_key(text: &str) -> String {
