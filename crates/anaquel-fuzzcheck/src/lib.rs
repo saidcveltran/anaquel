@@ -142,20 +142,60 @@ pub fn url_policy(data: &[u8]) {
             "iframe without an embed in {text:?}"
         );
     }
-    for attribute in ["href", "src", "action", "formaction", "poster"] {
-        for quote in ['"', '\''] {
-            for scheme in ["javascript:", "vbscript:", "data:", "file:"] {
-                let bad = format!("{attribute}={quote}{scheme}");
-                assert!(!html.contains(&bad), "`{bad}` in the output of {text:?}");
-            }
-        }
-    }
+    assert_eq!(
+        script_url_in_a_tag(&html),
+        None,
+        "script URL in a tag of the output of {text:?}"
+    );
     for origin in &composed.embed_origins {
         assert!(
             origin == "https://www.youtube-nocookie.com" || origin == "https://player.vimeo.com",
             "origin {origin}"
         );
     }
+}
+
+/// What is between `<` and `>` of every tag of `html`, quotes respected. The renderer escapes the
+/// text of a page, so a `<` in its output always opens a tag, and the words of a page that look
+/// like an attribute (`formaction="vbscript:`) stay outside of every tag.
+fn tags(html: &str) -> Vec<&str> {
+    let mut found = Vec::new();
+    let mut rest = html;
+    while let Some(open) = rest.find('<') {
+        let after = &rest[open + 1..];
+        let mut quote = None;
+        let mut end = after.len();
+        for (at, c) in after.char_indices() {
+            match (quote, c) {
+                (None, '>') => {
+                    end = at;
+                    break;
+                }
+                (None, '"' | '\'') => quote = Some(c),
+                (Some(open_quote), _) if c == open_quote => quote = None,
+                _ => {}
+            }
+        }
+        found.push(&after[..end]);
+        rest = &after[(end + 1).min(after.len())..];
+    }
+    found
+}
+
+/// The first attribute that starts with a script, data or file URL in a tag of lower-case `html`.
+fn script_url_in_a_tag(html: &str) -> Option<String> {
+    let tags = tags(html);
+    for attribute in ["href", "src", "action", "formaction", "poster"] {
+        for quote in ["\"", "'", ""] {
+            for scheme in ["javascript:", "vbscript:", "data:", "file:"] {
+                let bad = format!("{attribute}={quote}{scheme}");
+                if tags.iter().any(|tag| tag.contains(&bad)) {
+                    return Some(bad);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// The link policy and resolver: never panics, and only http, https, mailto or a site URL come
@@ -191,5 +231,43 @@ fn check_link(catalog: &Catalog, from: EntryId, href: &str) {
             );
         }
         Err(_) => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{script_url_in_a_tag, tags, url_policy};
+
+    #[test]
+    fn tags_are_read_with_their_quotes() {
+        assert_eq!(
+            tags("<p>a</p><a href=\"x>y\">b</a>"),
+            vec!["p", "/p", "a href=\"x>y\"", "/a"]
+        );
+        assert_eq!(tags("no tags &lt;here&gt;"), Vec::<&str>::new());
+        assert_eq!(tags("<a href=\"open"), vec!["a href=\"open"]);
+    }
+
+    #[test]
+    fn a_script_url_is_found_in_a_tag_and_not_in_text() {
+        for tag in [
+            "<a href=\"javascript:x\">",
+            "<a href='vbscript:x'>",
+            "<a href=data:text/html,x>",
+            "<form formaction=\"file:x\">",
+        ] {
+            assert!(script_url_in_a_tag(tag).is_some(), "{tag}");
+        }
+        assert_eq!(
+            script_url_in_a_tag("<p>formaction=\"vbscript:x\"</p>"),
+            None
+        );
+    }
+
+    #[test]
+    fn words_that_look_like_an_attribute_are_text() {
+        // Found by the first CI fuzz run: the page shows these words, it does not run them.
+        url_policy(b"formaction=\"vbscript:\0\0\0\0\0\0\0\x04u\0\0m\0\0\n");
+        url_policy(b"href=\"javascript:alert(1)\" src='data:text/html,x'");
     }
 }
