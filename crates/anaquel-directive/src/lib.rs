@@ -2,8 +2,18 @@
 //!
 //! `[[term]]` and `[[term|text]]` point at a term of the same volume. They are
 //! recognised here and not by the Markdown parser, whose own wiki-link option
-//! has had denial-of-service advisories. Block directives (`:::`) join this
-//! crate in a later milestone.
+//! has had denial-of-service advisories.
+//!
+//! Block directives (`:::name attrs` ... `:::`) are split out by [`parse_blocks`] and checked
+//! against a closed registry ([`SPECS`]). Content cannot define a directive of its own.
+
+mod attrs;
+mod block;
+mod registry;
+
+pub use attrs::Attributes;
+pub use block::{Block, BlockError, MAX_BLOCKS, MAX_DEPTH, Node, Parsed, parse_blocks};
+pub use registry::{Body, Key, SPECS, Spec, spec};
 
 /// Longest accepted reference target, in bytes. Bounds the work per reference.
 const MAX_TARGET_BYTES: usize = 200;
