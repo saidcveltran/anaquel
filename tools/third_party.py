@@ -7,6 +7,7 @@ Run from the repository root:  python -I tools/third_party.py [--check]
 crates of this workspace are left out. The section on bundled programs and fonts is kept as it is.
 """
 import datetime
+import difflib
 import pathlib
 import subprocess
 import sys
@@ -60,6 +61,11 @@ def main():
     if "--check" in sys.argv:
         if new.replace("\r\n", "\n") != old.replace("\r\n", "\n"):
             sys.stdout.write("THIRD-PARTY.md is out of date; run: python -I tools/third_party.py\n")
+            shown = difflib.unified_diff(
+                old.replace("\r\n", "\n").splitlines(), new.replace("\r\n", "\n").splitlines(),
+                "committed", "generated", lineterm="", n=0,
+            )
+            sys.stdout.write("\n".join(list(shown)[:40]) + "\n")
             return 1
         return 0
     TARGET.write_text(new, encoding="utf-8", newline="\n")
