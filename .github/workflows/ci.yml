@@ -44,6 +44,36 @@ jobs:
           "$bin" build my-docs --no-search
           test -f my-docs/dist/index.html
 
+  install-smoke:
+    name: install smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install dist
+        run: cargo install cargo-dist --locked --version 0.34.0
+      - name: Build the release archive of this system
+        run: dist build --artifacts=local --target ${{ matrix.target }}
+      - name: Unpack it and run the program from there
+        shell: bash
+        run: |
+          archive="$(ls target/distrib/anaquel-${{ matrix.target }}.* | grep -v '\.sha256$' | head -n 1)"
+          python -I tools/install_smoke.py "$archive" --sums "$archive.sha256"
+
   images:
     name: image metadata
     runs-on: ubuntu-latest
