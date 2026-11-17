@@ -35,16 +35,22 @@ pub fn redirects_file(redirects: &[(String, String)]) -> String {
 }
 
 /// Cloudflare `_headers`. The policy forbids inline scripts and styles, so the
-/// theme can never be made to run text from a page.
-pub fn headers_file(search: bool) -> String {
+/// theme can never be made to run text from a page. Frames are refused unless a page embeds a
+/// video: then only the origins in `frame_origins` may be framed.
+pub fn headers_file(search: bool, frame_origins: &[String]) -> String {
     let script = if search {
         "script-src 'self' 'wasm-unsafe-eval'"
     } else {
         "script-src 'self'"
     };
+    let frames = if frame_origins.is_empty() {
+        "'none'".to_owned()
+    } else {
+        frame_origins.join(" ")
+    };
     format!(
         "/*\n  Content-Security-Policy: default-src 'self'; {script}; style-src 'self'; img-src 'self' https: data:; \
-         font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\n  \
+         font-src 'self'; connect-src 'self'; frame-src {frames}; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\n  \
          X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n\
          /assets/*\n  Cache-Control: public, max-age=31536000, immutable\n"
     )
@@ -72,8 +78,19 @@ mod tests {
 
     #[test]
     fn headers_forbid_inline_scripts() {
-        assert!(headers_file(false).contains("script-src 'self';"));
-        assert!(headers_file(true).contains("'wasm-unsafe-eval'"));
-        assert!(!headers_file(true).contains("unsafe-inline"));
+        assert!(headers_file(false, &[]).contains("script-src 'self';"));
+        assert!(headers_file(true, &[]).contains("'wasm-unsafe-eval'"));
+        assert!(!headers_file(true, &[]).contains("unsafe-inline"));
+    }
+
+    #[test]
+    fn frames_are_refused_unless_a_page_embeds() {
+        assert!(headers_file(false, &[]).contains("frame-src 'none';"));
+        let origins = ["https://player.vimeo.com".to_owned()];
+        let text = headers_file(false, &origins);
+        assert!(
+            text.contains("frame-src https://player.vimeo.com;"),
+            "{text}"
+        );
     }
 }

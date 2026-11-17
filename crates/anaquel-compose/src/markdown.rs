@@ -1,8 +1,11 @@
-use anaquel_catalog::{Catalog, Entry, ResolvedLink};
+use std::slice::Iter;
+
+use anaquel_catalog::{Catalog, Entry, Heading, ResolvedLink};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
-use anaquel_directive::find_term_refs;
+use anaquel_directive::{find_term_refs, parse_blocks};
 use pulldown_cmark::{CowStr, Event, HeadingLevel, Parser, Tag, TagEnd, html};
 
+use crate::blocks::render_nodes;
 use crate::heading::{Lines, options};
 
 /// A page after composition.
@@ -14,27 +17,36 @@ pub struct Composed {
     pub plain: String,
     /// Site URLs of the pages and files this page links to, without anchors.
     pub links_out: Vec<String>,
+    /// Origins whose iframes this page loads (from `:::embed`), sorted, without repeats.
+    pub embed_origins: Vec<String>,
     /// Problems found while composing.
     pub report: Report,
 }
 
-struct State<'a> {
-    catalog: &'a Catalog,
-    entry: &'a Entry,
-    lines: Lines,
-    report: Report,
-    links_out: Vec<String>,
+/// What composing one page shares between its pieces of Markdown and its directives.
+pub(crate) struct State<'a> {
+    pub(crate) catalog: &'a Catalog,
+    pub(crate) entry: &'a Entry,
+    pub(crate) lines: Lines,
+    pub(crate) report: Report,
+    pub(crate) links_out: Vec<String>,
+    /// Headings of the page not yet reached, in order.
+    pub(crate) headings: Iter<'a, Heading>,
+    /// Whether a leading `# Title` that repeats the page title is still to be left out.
+    pub(crate) drop_h1: bool,
+    pub(crate) plain: String,
+    pub(crate) embed_origins: Vec<String>,
 }
 
 impl State<'_> {
-    fn located(&self, diagnostic: Diagnostic, offset: usize) -> Diagnostic {
+    pub(crate) fn located(&self, diagnostic: Diagnostic, offset: usize) -> Diagnostic {
         diagnostic
             .at(self.entry.source.as_str())
             .on_line(self.entry.body_line - 1 + self.lines.at(offset))
     }
 
     /// Resolves a link target; on failure reports it and returns `#`.
-    fn target(&mut self, href: &str, offset: usize) -> String {
+    pub(crate) fn target(&mut self, href: &str, offset: usize) -> String {
         match self.catalog.resolve_link(self.entry.id, href) {
             Ok(ResolvedLink::External(url)) => url,
             Ok(ResolvedLink::Internal(url)) => {
@@ -54,47 +66,73 @@ impl State<'_> {
 }
 
 /// Composes one entry.
-#[allow(
-    clippy::too_many_lines,
-    reason = "one event loop; splitting it would scatter its state"
-)]
 pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
+    // The theme prints the page title; a leading `# Title` that says the same
+    // thing would show it twice, so it is left out of the body.
+    let drop_h1 = entry
+        .headings
+        .first()
+        .is_some_and(|h| h.level == 1 && h.text == entry.title);
     let mut state = State {
         catalog,
         entry,
         lines: Lines::new(&entry.body),
         report: Report::new(),
         links_out: Vec::new(),
+        headings: entry.headings.iter(),
+        drop_h1,
+        plain: String::new(),
+        embed_origins: Vec::new(),
     };
-    let mut headings = entry.headings.iter();
+    let parsed = parse_blocks(&entry.body);
+    for problem in &parsed.errors {
+        let d = Diagnostic::error(Code::DIRECTIVE, problem.message.clone()).with_help(
+            "directives are written `:::name attributes` ... `:::`; see the manual for the list",
+        );
+        let located = state.located(d, problem.offset);
+        state.report.push(located);
+    }
+    let out = render_nodes(&mut state, &parsed.nodes);
+    state.links_out.sort();
+    state.links_out.dedup();
+    state.embed_origins.sort();
+    state.embed_origins.dedup();
+    Composed {
+        html: out,
+        plain: state.plain.trim().to_owned(),
+        links_out: state.links_out,
+        embed_origins: state.embed_origins,
+        report: state.report,
+    }
+}
+
+/// Renders one piece of Markdown that starts at byte `base` of the page body.
+#[allow(
+    clippy::too_many_lines,
+    reason = "one event loop; splitting it would scatter its state"
+)]
+pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) -> String {
     let mut events: Vec<Event<'_>> = Vec::new();
-    let mut plain = String::new();
     let mut buffer = String::new();
     let mut buffer_start = 0usize;
     let mut code_depth = 0usize;
     let mut link_depth = 0usize;
-
-    // The theme prints the page title; a leading `# Title` that says the same
-    // thing would show it twice, so it is left out of the body.
-    let mut drop_h1 = entry
-        .headings
-        .first()
-        .is_some_and(|h| h.level == 1 && h.text == entry.title);
     let mut dropping = false;
 
-    for (event, range) in Parser::new_ext(&entry.body, options()).into_offset_iter() {
+    for (event, range) in Parser::new_ext(text, options()).into_offset_iter() {
+        let at = base + range.start;
         if dropping {
             match &event {
                 Event::End(TagEnd::Heading(_)) => {
                     dropping = false;
-                    plain.push(' ');
+                    state.plain.push(' ');
                 }
-                Event::Text(text) | Event::Code(text) => plain.push_str(text),
+                Event::Text(t) | Event::Code(t) => state.plain.push_str(t),
                 _ => {}
             }
             continue;
         }
-        if drop_h1
+        if state.drop_h1
             && events.is_empty()
             && buffer.is_empty()
             && matches!(
@@ -105,28 +143,28 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                 })
             )
         {
-            drop_h1 = false;
+            state.drop_h1 = false;
             dropping = true;
-            headings.next();
+            state.headings.next();
             continue;
         }
         let scannable = code_depth == 0 && link_depth == 0;
-        if let Event::Text(text) = &event {
-            plain.push_str(text);
+        if let Event::Text(t) = &event {
+            state.plain.push_str(t);
             if scannable {
                 if buffer.is_empty() {
-                    buffer_start = range.start;
+                    buffer_start = at;
                 }
-                buffer.push_str(text);
+                buffer.push_str(t);
                 continue;
             }
         }
-        flush_text(&mut state, &mut buffer, buffer_start, &mut events);
+        flush_text(state, &mut buffer, buffer_start, &mut events);
 
         match event {
-            Event::Text(text) => events.push(Event::Text(text)),
+            Event::Text(t) => events.push(Event::Text(t)),
             Event::Code(code) => {
-                plain.push_str(&code);
+                state.plain.push_str(&code);
                 events.push(Event::Code(code));
             }
             Event::Html(raw) | Event::InlineHtml(raw) => {
@@ -134,12 +172,12 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                     .with_help(
                         "use Markdown; HTML in pages is refused so a page cannot run scripts",
                     );
-                let located = state.located(d, range.start);
+                let located = state.located(d, at);
                 state.report.push(located);
                 events.push(Event::Text(raw));
             }
             Event::SoftBreak | Event::HardBreak => {
-                plain.push(' ');
+                state.plain.push(' ');
                 events.push(event);
             }
             Event::Start(Tag::Heading {
@@ -148,7 +186,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                 attrs,
                 ..
             }) => {
-                let anchor = headings.next().map(|h| h.anchor.clone());
+                let anchor = state.headings.next().map(|h| h.anchor.clone());
                 events.push(Event::Start(Tag::Heading {
                     level,
                     id: anchor.map(CowStr::from),
@@ -157,7 +195,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                 }));
             }
             Event::End(end @ (TagEnd::Heading(_) | TagEnd::Paragraph)) => {
-                plain.push(' ');
+                state.plain.push(' ');
                 events.push(Event::End(end));
             }
             Event::Start(Tag::CodeBlock(kind)) => {
@@ -166,7 +204,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
             }
             Event::End(TagEnd::CodeBlock) => {
                 code_depth = code_depth.saturating_sub(1);
-                plain.push(' ');
+                state.plain.push(' ');
                 events.push(Event::End(TagEnd::CodeBlock));
             }
             Event::Start(Tag::Link {
@@ -176,7 +214,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                 id,
             }) => {
                 link_depth += 1;
-                let dest = state.target(&dest_url, range.start);
+                let dest = state.target(&dest_url, at);
                 events.push(Event::Start(Tag::Link {
                     link_type,
                     dest_url: dest.into(),
@@ -195,7 +233,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
                 id,
             }) => {
                 link_depth += 1;
-                let dest = state.target(&dest_url, range.start);
+                let dest = state.target(&dest_url, at);
                 events.push(Event::Start(Tag::Image {
                     link_type,
                     dest_url: dest.into(),
@@ -218,18 +256,12 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
             other => events.push(other),
         }
     }
-    flush_text(&mut state, &mut buffer, buffer_start, &mut events);
+    flush_text(state, &mut buffer, buffer_start, &mut events);
+    state.drop_h1 = false;
 
-    let mut out = String::with_capacity(entry.body.len() * 2);
+    let mut out = String::with_capacity(text.len() * 2);
     html::push_html(&mut out, events.into_iter());
-    state.links_out.sort();
-    state.links_out.dedup();
-    Composed {
-        html: out,
-        plain: plain.trim().to_owned(),
-        links_out: state.links_out,
-        report: state.report,
-    }
+    out
 }
 
 /// Emits the buffered text, turning `[[term]]` references into links.
@@ -288,7 +320,7 @@ fn flush_text(
     }
 }
 
-fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {
