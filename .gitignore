@@ -1,7 +1,10 @@
 /target/
-/dist/
+dist/
 .anaquel/
 *.tmp
 *~
 .DS_Store
 Thumbs.db
+/fuzz/target/
+/fuzz/artifacts/
+__pycache__/

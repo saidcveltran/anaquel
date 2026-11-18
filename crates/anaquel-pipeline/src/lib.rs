@@ -267,9 +267,16 @@ fn render_site(
             bytes: redirects_file(redirects).into_bytes(),
         });
     }
+    let mut frame_origins: Vec<String> = analysis
+        .composed
+        .values()
+        .flat_map(|page| page.embed_origins.iter().cloned())
+        .collect();
+    frame_origins.sort();
+    frame_origins.dedup();
     outputs.push(OutputFile {
         path: "_headers".to_owned(),
-        bytes: headers_file(search).into_bytes(),
+        bytes: headers_file(search, &frame_origins).into_bytes(),
     });
     if let Some(base) = &site.base_url {
         let mut urls: Vec<String> = analysis
@@ -318,3 +325,5 @@ fn redirect_page(language: &str, target: &str) -> String {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod xss;

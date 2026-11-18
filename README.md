@@ -87,7 +87,9 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | Full-text search | Available (0.1) | Through the external [Pagefind](https://pagefind.app) program; see [the decision](docs/decisions/0001-search.md) |
 | Local preview that rebuilds and reloads | Available (0.1) | `anaquel serve`, bound to `127.0.0.1` only |
 | `folio` theme with light and dark schemes and the bundled Literata font | Available (0.1) | No npm, no framework; motion respects `prefers-reduced-motion` |
-| Directives (`:::` hint, tabs, steps), syntax highlighting, fuzzing of the parsers | Planned (M1) | Nothing in this row is in the code today |
+| Directives: hint, details, tabs, cards, steps, columns, embed | Available (0.1) | One page each in [`examples/directives`](examples/directives); the set is closed |
+| Syntax highlighting of fenced code, in both colour schemes | Available (0.1) | Classes only, no inline styles; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java and more; others stay plain (no TOML, TypeScript or PowerShell yet) |
+| Fuzzing of the parsers | Available (0.1) | [`fuzz/`](fuzz): libFuzzer targets run for 10 minutes in CI on Linux only; on every system a smoke test replays the corpus; see [`fuzz/README.md`](fuzz/README.md) |
 | Shelves, several languages, `relocate`, `upgrade`, versioned docs | Planned (M2) | Nothing in this row is in the code today |
 
 ## Who it is for
@@ -159,7 +161,7 @@ The last row is the one that matters today.
 
 - You need something that works in production today: Anaquel has no release and no manual.
 - You rely on a large ecosystem of themes, plugins and importers: there are none, and one person maintains the project.
-- You need directives, versioned docs, several languages or an OpenAPI reference: they are planned, not built.
+- You need versioned docs, several languages or an OpenAPI reference: they are planned, not built.
 - You want search without installing another program: Pagefind is external.
 - You need an interface in a language other than English: the theme texts are English only for now.
 

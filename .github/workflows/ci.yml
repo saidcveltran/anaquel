@@ -33,6 +33,11 @@ jobs:
         run: cargo test --workspace --locked
       - name: Check the sample library
         run: cargo run -q --locked -p anaquel -- check examples/reference-library --strict
+      - name: Check the directives library
+        run: cargo run -q --locked -p anaquel -- check examples/directives --strict
+      - name: Third-party list is up to date
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 -I tools/third_party.py --check
       - name: Five-minute example from the README
         shell: bash
         run: |
@@ -81,6 +86,46 @@ jobs:
       - uses: actions/checkout@v4
       - name: No metadata in images
         run: python3 -I tools/check_images.py
+
+  gates:
+    name: naming and public gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tests of the gates
+        run: python3 -I tools/test_gates.py
+      - name: Names say what things are for
+        run: python3 -I tools/naming_gate.py
+      - name: Nothing private in the tree or in the history
+        run: python3 -I tools/public_gate.py
+
+  fuzz:
+    name: fuzz (10 minutes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The repository pins the stable compiler; the fuzzer needs a nightly one next to it.
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - name: Install the nightly compiler
+        run: rustup toolchain install nightly-2026-11-01 --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked --version 0.13.2
+      - name: Fuzz each target for 150 seconds
+        run: |
+          for target in directive_grammar front_matter url_policy link_resolver; do
+            cargo +nightly-2026-11-01 fuzz run "$target" -- -max_total_time=150 -rss_limit_mb=2048
+          done
+      - name: Keep what a failure found
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts
 
   deny:
     name: licenses and advisories

@@ -1,0 +1,48 @@
+[package]
+name = "anaquel-fuzz"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+publish = false
+description = "Fuzz targets for the parsers and the URL policy of Anaquel"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Not a member of the main workspace: it has its own lock file and is built only by `cargo fuzz`
+# (the libFuzzer runtime needs a nightly compiler and does not link on Windows). What the targets
+# check lives in `crates/anaquel-fuzzcheck`, which the main test run exercises on every system.
+[workspace]
+
+[dependencies]
+anaquel-fuzzcheck = { path = "../crates/anaquel-fuzzcheck" }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "directive_grammar"
+path = "fuzz_targets/directive_grammar.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "front_matter"
+path = "fuzz_targets/front_matter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "url_policy"
+path = "fuzz_targets/url_policy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "link_resolver"
+path = "fuzz_targets/link_resolver.rs"
+test = false
+doc = false
+bench = false

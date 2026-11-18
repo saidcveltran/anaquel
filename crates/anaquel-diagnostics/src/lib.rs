@@ -67,6 +67,8 @@ impl Code {
     pub const LOST_URL: Self = Self(601);
     /// The search index could not be built; the site still works without it.
     pub const SEARCH: Self = Self(701);
+    /// A `:::` directive is unknown, malformed, unclosed or in the wrong place.
+    pub const DIRECTIVE: Self = Self(801);
 }
 
 impl fmt::Display for Code {

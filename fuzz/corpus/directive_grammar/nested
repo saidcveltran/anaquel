@@ -1,0 +1,10 @@
+::::tabs sync=x
+:::tab title=A
+Text
+:::
+:::tab title=B
+:::hint danger
+x
+:::
+:::
+::::

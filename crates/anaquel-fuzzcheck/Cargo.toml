@@ -1,0 +1,18 @@
+[package]
+name = "anaquel-fuzzcheck"
+description = "The checks that the fuzz targets run, and a smoke test that runs them on every system"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anaquel-catalog.workspace = true
+anaquel-compose.workspace = true
+anaquel-directive.workspace = true
+anaquel-schema.workspace = true
+
+[lints]
+workspace = true

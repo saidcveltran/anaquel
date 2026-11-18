@@ -87,7 +87,9 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Búsqueda de texto completo | Disponible (0.1) | Con el programa externo [Pagefind](https://pagefind.app); ver [la decisión](docs/decisions/0001-search.md) |
 | Vista previa local que recompila y recarga | Disponible (0.1) | `anaquel serve`, solo en `127.0.0.1` |
 | Tema `folio` con esquemas claro y oscuro y la fuente Literata incluida | Disponible (0.1) | Sin npm ni framework; el movimiento respeta `prefers-reduced-motion` |
-| Directivas (`:::` aviso, pestañas, pasos), resaltado de sintaxis, fuzzing de los analizadores | Prevista (M1) | Nada de esta fila está en el código hoy |
+| Directivas: aviso, detalles, pestañas, tarjetas, pasos, columnas, incrustado | Disponible (0.1) | Una página cada una en [`examples/directives`](examples/directives); el conjunto es cerrado |
+| Resaltado de sintaxis del código con valla, en ambos esquemas | Disponible (0.1) | Solo clases, sin estilos en línea; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java y más; los demás quedan en texto plano (aún sin TOML, TypeScript ni PowerShell) |
+| Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
 | Estantes, varios idiomas, `relocate`, `upgrade`, documentación versionada | Prevista (M2) | Nada de esta fila está en el código hoy |
 
 ## Para quién es
@@ -159,7 +161,7 @@ La última fila es la que cuenta hoy.
 
 - Necesitas algo que funcione hoy en producción: Anaquel no tiene versión publicada ni manual.
 - Dependes de un ecosistema grande de temas, complementos e importadores: no existe, y una sola persona mantiene el proyecto.
-- Necesitas directivas, documentación versionada, varios idiomas o una referencia OpenAPI: están previstas, no construidas.
+- Necesitas documentación versionada, varios idiomas o una referencia OpenAPI: están previstas, no construidas.
 - Quieres búsqueda sin instalar otro programa: Pagefind es externo.
 - Necesitas una interfaz en un idioma distinto del inglés: los textos del tema están solo en inglés por ahora.
 

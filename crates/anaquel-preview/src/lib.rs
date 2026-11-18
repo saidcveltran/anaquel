@@ -17,7 +17,7 @@ use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, Uri, header};
 use axum::response::Response;
-use notify::RecursiveMode;
+use notify::{EventKind, RecursiveMode};
 use notify_debouncer_full::new_debouncer;
 
 /// Path of the script that asks the server whether to reload.
@@ -48,7 +48,7 @@ pub struct Hooks {
     pub log: Box<dyn Fn(&str) + Send + Sync>,
 }
 
-struct Shared {
+struct ServedSite {
     dir: PathBuf,
     version: AtomicU64,
 }
@@ -61,7 +61,7 @@ struct Shared {
 pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
     let hooks = Arc::new(hooks);
     (hooks.log)(&(hooks.rebuild)());
-    let shared = Arc::new(Shared {
+    let shared = Arc::new(ServedSite {
         dir: config.dir.clone(),
         version: AtomicU64::new(1),
     });
@@ -76,6 +76,7 @@ pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
             let Ok(events) = result else { return };
             let relevant = events
                 .iter()
+                .filter(|e| changes_content(e.event.kind))
                 .flat_map(|e| e.event.paths.iter())
                 .any(|p| is_source(p, &ignored));
             if relevant {
@@ -120,6 +121,13 @@ pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
     })
 }
 
+/// Whether an event means the file changed. On Linux, `inotify` also reports
+/// that a file was opened or read, and the build itself reads every source, so
+/// counting those would make each build start the next one.
+fn changes_content(kind: EventKind) -> bool {
+    !matches!(kind, EventKind::Access(_))
+}
+
 /// A change to a source file, not to build output, editor temporaries or Git.
 fn is_source(path: &Path, ignored: &[PathBuf]) -> bool {
     if ignored.iter().any(|dir| path.starts_with(dir)) {
@@ -138,7 +146,7 @@ fn is_source(path: &Path, ignored: &[PathBuf]) -> bool {
 /// Content-Security-Policy above all) apply to every response, so a page that
 /// the policy would break fails here too, not only after publishing.
 #[allow(clippy::unused_async, reason = "axum handlers must be async")]
-async fn handle(State(shared): State<Arc<Shared>>, headers: HeaderMap, uri: Uri) -> Response {
+async fn handle(State(shared): State<Arc<ServedSite>>, headers: HeaderMap, uri: Uri) -> Response {
     let mut response = route(&shared, &headers, &uri);
     if let Ok(text) = std::fs::read_to_string(shared.dir.join("_headers")) {
         for (name, value) in global_headers(&text) {
@@ -168,7 +176,7 @@ fn global_headers(text: &str) -> Vec<(header::HeaderName, header::HeaderValue)> 
     found
 }
 
-fn route(shared: &Shared, headers: &HeaderMap, uri: &Uri) -> Response {
+fn route(shared: &ServedSite, headers: &HeaderMap, uri: &Uri) -> Response {
     if !host_is_local(headers) {
         return plain(StatusCode::BAD_REQUEST, "bad host");
     }
@@ -368,6 +376,21 @@ mod tests {
         assert!(!is_source(Path::new("/lib/dist/index.html"), &ignored));
         assert!(!is_source(Path::new("/lib/.git/HEAD"), &ignored));
         assert!(!is_source(Path::new("/lib/volumes/a/page.md~"), &ignored));
+    }
+
+    #[test]
+    fn reading_a_file_does_not_count_as_a_change() {
+        use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind};
+        assert!(!changes_content(EventKind::Access(AccessKind::Open(
+            AccessMode::Any
+        ))));
+        assert!(!changes_content(EventKind::Access(AccessKind::Close(
+            AccessMode::Read
+        ))));
+        assert!(changes_content(EventKind::Create(CreateKind::File)));
+        assert!(changes_content(EventKind::Modify(ModifyKind::Any)));
+        assert!(changes_content(EventKind::Remove(RemoveKind::File)));
+        assert!(changes_content(EventKind::Any));
     }
 
     #[test]

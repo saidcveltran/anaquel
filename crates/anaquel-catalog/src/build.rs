@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anaquel_diagnostics::{Code, Diagnostic, Report};
-use anaquel_schema::{LibraryManifest, parse_page};
+use anaquel_schema::{LibraryManifest, parse_page, url_segment_problem};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::model::{Entry, EntryId, EntryKind, Heading, PageSource, Volume, VolumeSource};
@@ -144,6 +144,23 @@ fn read_entry(
             )
             .at(source.as_str()),
         );
+    }
+    let stem_in_address = (kind == EntryKind::Page && parsed.front.slug.is_none()).then_some(stem);
+    let folders = page.path.dir().split('/').filter(|s| !s.is_empty());
+    for segment in folders.chain(stem_in_address) {
+        if let Some(why) = url_segment_problem(segment) {
+            report.push(
+                Diagnostic::error(
+                    Code::IO,
+                    format!("`{segment}` cannot be part of a page address: it {why}"),
+                )
+                .with_help(
+                    "rename the file or folder to letters, digits and `- _ . ~ + @`; a page can also set `slug`",
+                )
+                .at(source.as_str()),
+            );
+            return None;
+        }
     }
     let url = entry_url(
         slug,
@@ -459,6 +476,13 @@ fn normalise_alias(alias: &str) -> Result<String, String> {
         return Err(bad("must be a plain path"));
     }
     let nfc: String = alias.nfc().collect();
+    for segment in nfc.split('/').skip(1).filter(|s| !s.is_empty()) {
+        if let Some(why) = url_segment_problem(segment) {
+            return Err(bad(&format!(
+                "has the segment `{segment}` which {why}; use letters, digits and `- _ . ~ + @`"
+            )));
+        }
+    }
     let last = nfc.rsplit('/').next().unwrap_or("");
     Ok(if last.contains('.') || nfc.ends_with('/') {
         nfc

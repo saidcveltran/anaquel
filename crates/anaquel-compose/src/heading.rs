@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anaquel_catalog::Heading;
+use anaquel_directive::{Node, parse_blocks};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use unicode_normalization::UnicodeNormalization;
 
@@ -82,36 +83,54 @@ pub(crate) fn slugify(text: &str) -> String {
 
 /// Lists the headings of a Markdown body, with anchors and lines counted from
 /// 1 within the body. Headings inside code blocks are not headings.
+///
+/// The Markdown between `:::` directives is read piece by piece, in the same order the page is
+/// composed, so a heading inside a block is listed and a directive line never joins a heading.
 pub fn headings_of(body: &str) -> Vec<Heading> {
     let lines = Lines::new(body);
     let mut slugger = Slugger::default();
     let mut found = Vec::new();
-    let mut current: Option<(u8, usize, String)> = None;
-    for (event, range) in Parser::new_ext(body, options()).into_offset_iter() {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                current = Some((level_number(level), range.start, String::new()));
-            }
-            Event::Text(t) | Event::Code(t) => {
-                if let Some((_, _, text)) = current.as_mut() {
-                    text.push_str(&t);
+    let parsed = parse_blocks(body);
+    let mut pieces = Vec::new();
+    collect_markdown(&parsed.nodes, &mut pieces);
+    for (base, text) in pieces {
+        let mut current: Option<(u8, usize, String)> = None;
+        for (event, range) in Parser::new_ext(text, options()).into_offset_iter() {
+            match event {
+                Event::Start(Tag::Heading { level, .. }) => {
+                    current = Some((level_number(level), base + range.start, String::new()));
                 }
-            }
-            Event::End(TagEnd::Heading(_)) => {
-                if let Some((level, start, text)) = current.take() {
-                    let text = text.trim().to_owned();
-                    found.push(Heading {
-                        level,
-                        anchor: slugger.anchor(&text),
-                        text,
-                        line: lines.at(start),
-                    });
+                Event::Text(t) | Event::Code(t) => {
+                    if let Some((_, _, text)) = current.as_mut() {
+                        text.push_str(&t);
+                    }
                 }
+                Event::End(TagEnd::Heading(_)) => {
+                    if let Some((level, start, text)) = current.take() {
+                        let text = text.trim().to_owned();
+                        found.push(Heading {
+                            level,
+                            anchor: slugger.anchor(&text),
+                            text,
+                            line: lines.at(start),
+                        });
+                    }
+                }
+                _ => {}
             }
-            _ => {}
         }
     }
     found
+}
+
+/// Every piece of Markdown of `nodes`, with its offset, in page order.
+fn collect_markdown<'a>(nodes: &[Node<'a>], out: &mut Vec<(usize, &'a str)>) {
+    for node in nodes {
+        match node {
+            Node::Markdown { start, text } => out.push((*start, text)),
+            Node::Block(block) => collect_markdown(&block.children, out),
+        }
+    }
 }
 
 #[cfg(test)]

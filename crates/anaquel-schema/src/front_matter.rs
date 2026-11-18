@@ -135,8 +135,10 @@ fn parse_block(
             }
             "slug" => {
                 let slug = text(value).ok_or_else(|| wrong("text"))?;
-                if slug.is_empty() || slug.contains('/') || slug.contains('\\') {
-                    return Err(wrong("one non-empty URL segment without `/`"));
+                if let Some(why) = crate::names::url_segment_problem(&slug) {
+                    return Err(wrong(&format!(
+                        "one URL segment of letters, digits and `- _ . ~ + @` (this one {why})"
+                    )));
                 }
                 front.slug = Some(slug);
             }
