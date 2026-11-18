@@ -232,3 +232,87 @@ fn the_stylesheet_names_the_fingerprinted_font() {
     assert!(url.starts_with("/assets/fonts/literata-latin."), "{url}");
     assert!(s.exists(url.trim_start_matches('/')));
 }
+
+#[test]
+fn the_multi_shelf_example_builds_clean_and_groups_the_home_page() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/multi-shelf");
+    let s = Scratch::new("shelves");
+    let walk = walkdir::WalkDir::new(&root)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != "dist");
+    for item in walk {
+        let item = item.unwrap();
+        if item.file_type().is_file() {
+            let relative = item.path().strip_prefix(&root).unwrap();
+            let text = fs::read_to_string(item.path()).unwrap();
+            s.put(
+                &relative
+                    .to_string_lossy()
+                    .replace(std::path::MAIN_SEPARATOR, "/"),
+                &text,
+            );
+        }
+    }
+    let outcome = build(&s.options());
+    assert_eq!(
+        outcome.report.items().len(),
+        0,
+        "{:?}",
+        outcome.report.items()
+    );
+    assert_eq!(outcome.pages, 5);
+    for path in [
+        "about/index.html",
+        "guides/start/index.html",
+        "guides/start/first-steps/index.html",
+        "guides/advanced/index.html",
+        "reference/start/index.html",
+    ] {
+        assert!(s.exists(path), "missing {path}");
+    }
+    let home = s.read("index.html");
+    let guides = home.find("<h2>Guides</h2>").unwrap();
+    let reference = home.find("<h2>Reference</h2>").unwrap();
+    assert!(home.find("href=\"/about/\"").unwrap() < guides);
+    assert!(guides < home.find("href=\"/guides/start/\"").unwrap());
+    assert!(home.find("href=\"/guides/advanced/\"").unwrap() < reference);
+    assert!(reference < home.find("href=\"/reference/start/\"").unwrap());
+}
+
+#[test]
+fn a_library_may_have_shelves_and_no_loose_volumes() {
+    let s = Scratch::new("shelves-only");
+    s.put(
+        "anaquel.toml",
+        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+    );
+    s.put("shelves/a/shelf.toml", "title = \"A\"\n");
+    s.put("shelves/a/volumes/v/volume.toml", "title = \"V\"\n");
+    s.put("shelves/a/volumes/v/_index.md", "# V\n");
+    let outcome = build(&s.options());
+    assert!(!outcome.report.has_errors(), "{:?}", outcome.report.items());
+    assert!(s.exists("a/v/index.html"));
+}
+
+#[test]
+fn a_shelf_without_its_manifest_is_an_error() {
+    let s = Scratch::new("shelf-no-manifest");
+    s.put(
+        "anaquel.toml",
+        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+    );
+    s.put("shelves/a/volumes/v/volume.toml", "title = \"V\"\n");
+    s.put("shelves/a/volumes/v/_index.md", "# V\n");
+    let outcome = check(&s.0);
+    assert!(outcome.report.has_errors());
+    assert!(
+        outcome
+            .report
+            .items()
+            .iter()
+            .any(|d| d.message.contains("shelf.toml")),
+        "{:?}",
+        outcome.report.items()
+    );
+}

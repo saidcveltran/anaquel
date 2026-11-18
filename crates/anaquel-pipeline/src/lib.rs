@@ -59,8 +59,12 @@ struct Analysis {
 
 fn analyse(root: &Path, report: &mut Report) -> Option<Analysis> {
     let ingested = ingest::ingest(root, ENGINE_VERSION, report)?;
-    let (catalog, catalog_report) =
-        Catalog::build(ingested.library, ingested.volumes, &headings_of);
+    let (catalog, catalog_report) = Catalog::build(
+        ingested.library,
+        ingested.shelves,
+        ingested.volumes,
+        &headings_of,
+    );
     report.extend(catalog_report);
 
     let published: Vec<&Entry> = catalog.entries().iter().filter(|e| !e.draft).collect();

@@ -15,6 +15,7 @@ fn compose_page(page: &str) -> Composed {
     ];
     let volume = VolumeSource {
         slug: "v".to_owned(),
+        shelf: None,
         manifest: VolumeManifest::parse("title = \"V\"\n", "volume.toml").unwrap(),
         pages: pages
             .iter()
@@ -25,7 +26,7 @@ fn compose_page(page: &str) -> Composed {
             .collect(),
         files: vec![LogicalPath::new("pic.png").unwrap()],
     };
-    let (catalog, _) = Catalog::build(library, vec![volume], &headings_of);
+    let (catalog, _) = Catalog::build(library, Vec::new(), vec![volume], &headings_of);
     let entry = catalog
         .entries()
         .iter()

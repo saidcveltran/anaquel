@@ -14,7 +14,10 @@ mod model;
 pub use build::HeadingsOf;
 pub use links::ResolvedLink;
 pub use logical_path::LogicalPath;
-pub use model::{Entry, EntryId, EntryKind, Heading, PageSource, TermTarget, Volume, VolumeSource};
+pub use model::{
+    Entry, EntryId, EntryKind, Heading, PageSource, Shelf, ShelfSource, TermTarget, Volume,
+    VolumeSource,
+};
 
 use std::collections::HashMap;
 
@@ -25,6 +28,7 @@ use anaquel_schema::LibraryManifest;
 #[derive(Debug)]
 pub struct Catalog {
     library: LibraryManifest,
+    shelves: Vec<Shelf>,
     volumes: Vec<Volume>,
     entries: Vec<Entry>,
     by_source: HashMap<String, EntryId>,
@@ -43,10 +47,16 @@ impl Catalog {
     /// every problem.
     pub fn build(
         library: LibraryManifest,
+        shelves: Vec<ShelfSource>,
         volumes: Vec<VolumeSource>,
         headings_of: &HeadingsOf<'_>,
     ) -> (Self, Report) {
-        build::build(library, volumes, headings_of)
+        build::build(library, shelves, volumes, headings_of)
+    }
+
+    /// Shelves in display order.
+    pub fn shelves(&self) -> &[Shelf] {
+        &self.shelves
     }
 
     /// The parsed `anaquel.toml`.

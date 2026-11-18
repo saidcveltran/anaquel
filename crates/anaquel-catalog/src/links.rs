@@ -76,7 +76,7 @@ pub(crate) fn resolve(
             format!("`{href}` is not valid percent-encoding"),
         )
     })?;
-    let origin_dir = format!("volumes/{}", catalog.volumes[origin.volume].slug);
+    let origin_dir = catalog.volumes[origin.volume].folder();
     let base = if origin.rel.dir().is_empty() {
         origin_dir
     } else {

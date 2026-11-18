@@ -1,0 +1,5 @@
+schema = 1
+engine = "0.1"
+title = "Multi-shelf Library"
+language = "en"
+description = "An invented library that groups its volumes on shelves."

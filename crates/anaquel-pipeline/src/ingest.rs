@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use anaquel_catalog::{LogicalPath, PageSource, VolumeSource};
+use anaquel_catalog::{LogicalPath, PageSource, ShelfSource, VolumeSource};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
-use anaquel_schema::{LibraryManifest, VolumeManifest};
+use anaquel_schema::{LibraryManifest, ShelfManifest, VolumeManifest};
 use walkdir::WalkDir;
 
 /// Largest Markdown file read, in bytes. Bounds memory on hostile input.
@@ -12,8 +12,12 @@ const MAX_PAGE_BYTES: u64 = 5 * 1024 * 1024;
 /// Name of the folder that holds the volumes.
 pub(crate) const VOLUMES_DIR: &str = "volumes";
 
+/// Name of the folder that holds the shelves.
+pub(crate) const SHELVES_DIR: &str = "shelves";
+
 pub(crate) struct Ingested {
     pub(crate) library: LibraryManifest,
+    pub(crate) shelves: Vec<ShelfSource>,
     pub(crate) volumes: Vec<VolumeSource>,
 }
 
@@ -49,25 +53,57 @@ pub(crate) fn ingest(root: &Path, engine: &str, report: &mut Report) -> Option<I
     };
 
     let mut volumes = Vec::new();
+    let mut shelves = Vec::new();
     let volumes_dir = root.join(VOLUMES_DIR);
-    let Ok(listing) = fs::read_dir(&volumes_dir) else {
+    let has_loose = volumes_dir.is_dir();
+    if has_loose {
+        volumes.extend(read_volumes(&volumes_dir, None, report));
+    }
+    let shelves_dir = root.join(SHELVES_DIR);
+    if shelves_dir.is_dir() {
+        for (slug, dir) in folders_of(&shelves_dir, SHELVES_DIR, report) {
+            if let Some(shelf) = read_shelf(&dir, &slug, report) {
+                volumes.extend(read_volumes(&dir.join(VOLUMES_DIR), Some(&slug), report));
+                shelves.push(shelf);
+            }
+        }
+    }
+    if !has_loose && shelves.is_empty() {
         report.push(
             Diagnostic::error(Code::MANIFEST, "the library has no `volumes` folder")
                 .with_help("put each book in its own folder under `volumes/`"),
         );
         return None;
+    }
+    if volumes.is_empty() && !report.has_errors() {
+        report.push(
+            Diagnostic::error(Code::MANIFEST, "the library has no volumes")
+                .with_help("add a folder with a `volume.toml` under `volumes/`"),
+        );
+    }
+    Some(Ingested {
+        library,
+        shelves,
+        volumes,
+    })
+}
+
+fn folders_of(dir: &Path, label: &str, report: &mut Report) -> Vec<(String, std::path::PathBuf)> {
+    let Ok(listing) = fs::read_dir(dir) else {
+        return Vec::new();
     };
-    let mut slugs: Vec<_> = listing
+    let mut found: Vec<_> = listing
         .filter_map(Result::ok)
         .filter(|e| e.path().is_dir())
         .collect();
-    slugs.sort_by_key(std::fs::DirEntry::file_name);
-    for entry in slugs {
+    found.sort_by_key(std::fs::DirEntry::file_name);
+    let mut folders = Vec::new();
+    for entry in found {
         let Some(slug) = entry.file_name().to_str().map(str::to_owned) else {
             report.push(Diagnostic::error(
                 Code::IO,
                 format!(
-                    "volume folder name is not UTF-8: {}",
+                    "folder name is not UTF-8: {}",
                     entry.file_name().to_string_lossy()
                 ),
             ));
@@ -80,24 +116,51 @@ pub(crate) fn ingest(root: &Path, engine: &str, report: &mut Report) -> Option<I
             report.push(
                 Diagnostic::error(
                     Code::MANIFEST,
-                    format!("volume folder `{slug}` cannot be a URL segment"),
+                    format!("folder `{slug}` cannot be a URL segment"),
                 )
-                .at(format!("{VOLUMES_DIR}/{slug}"))
+                .at(format!("{label}/{slug}"))
                 .with_help("use letters, digits, `-` and `_`"),
             );
             continue;
         }
-        if let Some(volume) = read_volume(&entry.path(), &slug, report) {
-            volumes.push(volume);
+        folders.push((slug, entry.path()));
+    }
+    folders
+}
+
+fn read_volumes(dir: &Path, shelf: Option<&str>, report: &mut Report) -> Vec<VolumeSource> {
+    let label = shelf.map_or_else(
+        || VOLUMES_DIR.to_owned(),
+        |shelf| format!("{SHELVES_DIR}/{shelf}/{VOLUMES_DIR}"),
+    );
+    folders_of(dir, &label, report)
+        .into_iter()
+        .filter_map(|(slug, path)| read_volume(&path, &slug, shelf, report))
+        .collect()
+}
+
+fn read_shelf(dir: &Path, slug: &str, report: &mut Report) -> Option<ShelfSource> {
+    let manifest_name = format!("{SHELVES_DIR}/{slug}/shelf.toml");
+    let text = match fs::read_to_string(dir.join("shelf.toml")) {
+        Ok(text) => text,
+        Err(error) => {
+            report.push(
+                Diagnostic::error(Code::MANIFEST, format!("cannot read shelf.toml: {error}"))
+                    .at(manifest_name),
+            );
+            return None;
+        }
+    };
+    match ShelfManifest::parse(&text, &manifest_name) {
+        Ok(manifest) => Some(ShelfSource {
+            slug: slug.to_owned(),
+            manifest,
+        }),
+        Err(diagnostic) => {
+            report.push(diagnostic);
+            None
         }
     }
-    if volumes.is_empty() && !report.has_errors() {
-        report.push(
-            Diagnostic::error(Code::MANIFEST, "the library has no volumes")
-                .with_help("add a folder with a `volume.toml` under `volumes/`"),
-        );
-    }
-    Some(Ingested { library, volumes })
 }
 
 fn is_url_segment(slug: &str) -> bool {
@@ -107,9 +170,18 @@ fn is_url_segment(slug: &str) -> bool {
             .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
-fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSource> {
+fn read_volume(
+    dir: &Path,
+    slug: &str,
+    shelf: Option<&str>,
+    report: &mut Report,
+) -> Option<VolumeSource> {
+    let folder = shelf.map_or_else(
+        || format!("{VOLUMES_DIR}/{slug}"),
+        |shelf| format!("{SHELVES_DIR}/{shelf}/{VOLUMES_DIR}/{slug}"),
+    );
     let manifest_path = dir.join("volume.toml");
-    let manifest_name = format!("{VOLUMES_DIR}/{slug}/volume.toml");
+    let manifest_name = format!("{folder}/volume.toml");
     let text = match fs::read_to_string(&manifest_path) {
         Ok(text) => text,
         Err(error) => {
@@ -159,7 +231,7 @@ fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSour
         if item.path_is_symlink() {
             report.push(
                 Diagnostic::info(Code::IO, "symbolic links are not followed")
-                    .at(format!("{VOLUMES_DIR}/{slug}/{relative_text}")),
+                    .at(format!("{folder}/{relative_text}")),
             );
             continue;
         }
@@ -170,8 +242,7 @@ fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSour
             Ok(path) => path,
             Err(reason) => {
                 report.push(
-                    Diagnostic::error(Code::IO, reason)
-                        .at(format!("{VOLUMES_DIR}/{slug}/{relative_text}")),
+                    Diagnostic::error(Code::IO, reason).at(format!("{folder}/{relative_text}")),
                 );
                 continue;
             }
@@ -183,16 +254,13 @@ fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSour
                     format!("`{bad}` in a file or folder name would end or change its address"),
                 )
                 .with_help("rename it; letters, digits, spaces and `- _ . ( ) , ;` are fine")
-                .at(format!("{VOLUMES_DIR}/{slug}/{relative_text}")),
+                .at(format!("{folder}/{relative_text}")),
             );
             continue;
         }
         if relative_text.to_ascii_lowercase().ends_with(".md") {
-            if let Some(text) = read_page(
-                item.path(),
-                &format!("{VOLUMES_DIR}/{slug}/{relative_text}"),
-                report,
-            ) {
+            if let Some(text) = read_page(item.path(), &format!("{folder}/{relative_text}"), report)
+            {
                 pages.push(PageSource {
                     path: logical,
                     text,
@@ -204,6 +272,7 @@ fn read_volume(dir: &Path, slug: &str, report: &mut Report) -> Option<VolumeSour
     }
     Some(VolumeSource {
         slug: slug.to_owned(),
+        shelf: shelf.map(str::to_owned),
         manifest,
         pages,
         files,

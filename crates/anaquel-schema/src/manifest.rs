@@ -42,6 +42,31 @@ pub struct VolumeManifest {
     pub weight: i64,
 }
 
+/// Contents of `shelf.toml`, the manifest of a group of volumes.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShelfManifest {
+    /// Name of the shelf.
+    pub title: String,
+    /// One sentence about the shelf, shown on the library home.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Position among the shelves of the library; lower comes first.
+    #[serde(default)]
+    pub weight: i64,
+}
+
+impl ShelfManifest {
+    /// Parses a `shelf.toml`; `path` is only used to locate errors.
+    ///
+    /// # Errors
+    /// Returns a diagnostic when the text is invalid or has unknown keys.
+    pub fn parse(text: &str, path: &str) -> Result<Self, Diagnostic> {
+        toml::from_str(text)
+            .map_err(|e| Diagnostic::error(Code::MANIFEST, e.message().to_owned()).at(path))
+    }
+}
+
 impl LibraryManifest {
     /// Parses `anaquel.toml` and checks its schema and engine line.
     ///
@@ -129,6 +154,16 @@ mod tests {
         let m = LibraryManifest::parse(OK, "0.1.0").expect("valid");
         assert_eq!(m.title, "Demo");
         assert_eq!(m.language, "en");
+    }
+
+    #[test]
+    fn parses_a_shelf_and_rejects_its_unknown_keys() {
+        let shelf =
+            ShelfManifest::parse("title = \"S\"\nweight = 3\n", "shelf.toml").expect("valid");
+        assert_eq!((shelf.title.as_str(), shelf.weight), ("S", 3));
+        let err = ShelfManifest::parse("title = \"S\"\ncolour = 1\n", "shelf.toml")
+            .expect_err("unknown key");
+        assert_eq!(err.code, Code::MANIFEST);
     }
 
     #[test]
