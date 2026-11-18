@@ -45,6 +45,13 @@ Run on cards, columns, tabs, steps and details, once with `prefers-color-scheme:
 | D5 | Look at the steps. | The number circle and the vertical line are visible. |
 | D6 | Press the theme toggle under a light system. | The icons swap and no light colour stays in a directive. |
 
+## Console
+
+| Id | Steps | Expected |
+|---|---|---|
+| C1 | Open the developer console of a Chromium or Firefox browser and load any page. | One message appears once: the logo, a shelf with its cat read as the letter A, then `naquel`, and under it `Hello from Team! This is Anaquel Dev Team.`. It builds itself in about 5.5 s, the letters drawn one by one and the line typed character by character, and then the tail keeps moving. The message is not empty, and there is no error or warning. |
+| C2 | Emulate `reduce`, or set `data-motion="off"`, and load a page. | The same image appears and it is still. |
+
 ## Anchor scroll
 
 Setup: `no-preference` and no `data-motion` unless the case says otherwise.
