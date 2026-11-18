@@ -23,7 +23,7 @@ English | [Español](README.es.md)
 
 Anaquel is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product.
 
-> **Status: early development, no release yet.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual and no installer. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
+> **Status: early development; 0.1.0 is the first release.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual, and the installer scripts have not been tried against real release files. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
 <p align="center">
   <picture>
@@ -100,7 +100,7 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 
 ## Install
 
-There are no downloadable binaries yet, so the only way is to build from source. You need Rust 1.99 or newer ([rustup](https://rustup.rs)) and Git.
+Download the archive for your system from the [releases page](https://github.com/saidcveltran/anaquel/releases), check it against the SHA-256 sums published with it, unpack it and run `anaquel version`. Or build from source: you need Rust 1.99 or newer ([rustup](https://rustup.rs)) and Git.
 
 ```text
 git clone https://github.com/saidcveltran/anaquel.git
@@ -116,7 +116,7 @@ cargo build --release -p anaquel
 
 Search needs the `pagefind` program next to `anaquel` or on your `PATH` (or set `ANAQUEL_PAGEFIND` to its path). Without it the site still builds, without a search box. `anaquel doctor` tells you which case you are in.
 
-When releases exist they will come with SHA-256 sums. They will not be signed by Windows or Apple, so SmartScreen and Gatekeeper will warn you; that is expected and will be documented with the first release. None of this exists yet.
+Releases come with SHA-256 sums. They are not signed by Windows or Apple, so SmartScreen and Gatekeeper will warn you; that is expected. There is no Linux arm64 archive yet.
 
 ## Five-minute example
 
@@ -159,7 +159,7 @@ The last row is the one that matters today.
 
 ## When not to use Anaquel
 
-- You need something that works in production today: Anaquel has no release and no manual.
+- You need something that works in production today: Anaquel is at 0.1 and has no manual.
 - You rely on a large ecosystem of themes, plugins and importers: there are none, and one person maintains the project.
 - You need versioned docs, several languages or an OpenAPI reference: they are planned, not built.
 - You want search without installing another program: Pagefind is external.
@@ -197,7 +197,7 @@ python -I tools/check_images.py
 
 ## FAQ
 
-**Is it ready to use?** No. It is version 0.1 with no release. It builds and its tests pass in CI on three systems.
+**Is it ready to use?** No. It is version 0.1, the first release. It builds and its tests pass in CI on three systems.
 
 **Does it use AI?** No. There is no AI in the product, in the build or in the site it writes.
 
@@ -207,7 +207,7 @@ python -I tools/check_images.py
 
 ## Changes
 
-See [CHANGELOG.md](CHANGELOG.md). Every change is recorded with its known limits. Nothing has been released.
+See [CHANGELOG.md](CHANGELOG.md). Every change is recorded with its known limits.
 
 ## License
 
