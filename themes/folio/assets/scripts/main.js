@@ -276,14 +276,16 @@
       "</style>" +
       shelfBody +
       "</svg>";
-    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+    // DevTools drops a style value with two "url(", and the drawing has a clip-path url inside.
+    var data = encodeURIComponent(svg).replace(/\(/g, "%28").replace(/\)/g, "%29");
+    return 'url("data:image/svg+xml,' + data + '")';
   }
 
   if (window.console && typeof console.log === "function") {
     var animated = motionQuery.matches && root.getAttribute("data-motion") !== "off";
     console.log(
       "%c ",
-      "font-size:1px;line-height:160px;padding:80px 247px;background:" +
+      "font-size:1px;line-height:116px;padding:58px 180px;background:" +
         shelfImage(animated) +
         " no-repeat center/contain",
     );
