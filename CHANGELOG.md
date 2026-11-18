@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
+
 ### Removed
 
 - macOS support. CI no longer runs on macOS (its runners often got no machine and the jobs were cancelled after 15 minutes), and the release workflow builds archives for Windows x86_64 and Linux x86_64 only. Known limits: nobody builds or tests Anaquel on macOS or on any arm64 system; 0.1.0 keeps its two macOS archives but they are no longer kept up; the installer scripts of later releases will offer no macOS archive.
@@ -44,8 +48,6 @@ First release.
 - A hand-written attack suite (`crates/anaquel-pipeline/src/xss.rs`): hostile text in every place that accepts text must build into pages that a tag scanner finds clean (only listed tags, no event or style attributes, no script with a body, no dangerous URL, frames only from the sandboxed video players); about 100 payloads (script, data, file and protocol-relative links, entity and tab tricks, raw HTML of every kind, directive abuse, bad embed hosts, hostile front matter) must each be refused with nothing written.
 - Fuzzing: four `cargo-fuzz` targets in `fuzz/` (`directive_grammar`, `front_matter`, `url_policy`, `link_resolver`) and a CI job that runs each for 150 seconds, ten minutes in all, on Linux with a pinned nightly compiler. The checks live in the new crate `anaquel-fuzzcheck`, which also runs them over the seed files and about 20 000 mutations on every system in the ordinary test run.
 - `tools/naming_gate.py` refuses crate, folder, file, module and type names that say nothing about their responsibility (`utils`, `helpers`, `common`, `shared`, `types`, `context`, `item`, a `new_` or `old_` prefix, a version suffix, an `impl` suffix); `tools/public_gate.py` looks in the tree and in the commit history for user folders, keys, e-mail addresses that are not public GitHub identities, traces of AI tools and editor metadata in binaries, and takes a private list of names with `--private FILE`; `tools/test_gates.py` tests both. CI runs the three in a `gates` job with the full history.
-
-- Theme `folio`: a jump to a heading on the same page (the table of contents, a link with `#anchor`) now scrolls smoothly, only when the system does not ask for reduced motion and `data-motion` is not `off`; otherwise it stays instant. No script. Limit: the browser sets the duration from the distance, so it passes the 500 ms ceiling of the plan on jumps longer than about 1 000 px; measured in Chromium 156 on Linux: 0.4 s for 560 px, 0.9 s for 3 000 px, 1.5 s from 7 700 px up.
 
 ### Fixed
 
