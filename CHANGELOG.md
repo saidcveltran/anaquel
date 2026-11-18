@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
+
 ### Removed
 
 - macOS support. CI no longer runs on macOS (its runners often got no machine and the jobs were cancelled after 15 minutes), and the release workflow builds archives for Windows x86_64 and Linux x86_64 only. Known limits: nobody builds or tests Anaquel on macOS or on any arm64 system; 0.1.0 keeps its two macOS archives but they are no longer kept up; the installer scripts of later releases will offer no macOS archive.
