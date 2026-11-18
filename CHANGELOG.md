@@ -39,6 +39,8 @@ All notable changes to this project are written here. The format follows
 
 ### Fixed
 
+- The `gates` CI job checked the merge commit that GitHub builds for a pull request, which carries the author's profile e-mail, and failed a clean change. It now checks the pull request at its own head.
+
 - `cargo-deny` rejected the path dependencies between workspace crates as wildcards; `deny.toml` now allows wildcard paths (the crates are not published).
 
 - The theme toggle showed a moon in both colour schemes. It now shows a moon in the light scheme and a sun in the dark one, chosen by CSS only.
