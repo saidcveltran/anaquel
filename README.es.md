@@ -22,7 +22,7 @@
 
 Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático para Cloudflare Workers, sin IA en el producto.
 
-> **Estado: desarrollo temprano; 0.1.0 es la primera versión publicada.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. Los archivos de la 0.1.0, sus sumas SHA-256 y el instalador de shell en el modo que no toca tu `PATH` se comprobaron con los archivos reales de la versión en Linux; el instalador de PowerShell y el modo por defecto del instalador de shell no. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
+> **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. Los archivos de la 0.1.0, sus sumas SHA-256 y el instalador de shell en el modo que no toca tu `PATH` se comprobaron con los archivos reales de la versión en Linux; el instalador de PowerShell y el modo por defecto del instalador de shell no. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
 
 <p align="center">
   <picture>

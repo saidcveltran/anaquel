@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "anaquel-pipeline",
@@ -30,14 +30,14 @@ dependencies = [
 
 [[package]]
 name = "anaquel-assets"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
 ]
 
 [[package]]
 name = "anaquel-catalog"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "anaquel-directive",
@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-compose"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-catalog",
  "anaquel-diagnostics",
@@ -61,18 +61,18 @@ dependencies = [
 
 [[package]]
 name = "anaquel-diagnostics"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "anaquel-directive"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "anaquel-emit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "blake3",
@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-fuzzcheck"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-catalog",
  "anaquel-compose",
@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-pipeline"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-assets",
  "anaquel-catalog",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-preview"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "axum",
@@ -122,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-render"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "anaquel-theme",
@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "anaquel-schema"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "serde",
@@ -142,14 +142,14 @@ dependencies = [
 
 [[package]]
 name = "anaquel-search"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
 ]
 
 [[package]]
 name = "anaquel-theme"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anaquel-diagnostics",
  "serde",

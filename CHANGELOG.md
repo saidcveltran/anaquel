@@ -6,11 +6,19 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-18
+
+Theme changes and the end of macOS support. The engine has no code change.
+
 ### Changed
 
 - Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
 - Theme `folio`: jumps to a heading last 200 to 400 ms in every browser, move focus to the heading, and Back and Forward restore the position at once. Limits: the script adds about 9 KB before compression; Firefox and Safari were not run; the cases are in `docs/folio-browser-cases.md`.
 - Theme `folio`: every page writes an animated logo and a greeting to the browser console. Limits: the script grows to about 19 KB before compression (about 5.5 KB after); Firefox and Safari were not run; the cases are C1 and C2 in `docs/folio-browser-cases.md`.
+
+### Fixed
+
+- The public gate in CI read the co-author trailer that GitHub adds to a squash merge as a trace of an AI tool and failed every pull request. It now accepts that trailer when its address is a public GitHub identity. Limit: the line that caused it stays in the history of `main`, which was not rewritten.
 
 ### Removed
 
