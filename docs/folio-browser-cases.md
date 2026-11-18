@@ -45,6 +45,12 @@ Run on cards, columns, tabs, steps and details, once with `prefers-color-scheme:
 | D5 | Look at the steps. | The number circle and the vertical line are visible. |
 | D6 | Press the theme toggle under a light system. | The icons swap and no light colour stays in a directive. |
 
+## Console
+
+| Id | Steps | Expected |
+|---|---|---|
+| C1 | Open the developer console and load any page. | A drawing of a shelf and one line of text appear once, with no error or warning. |
+
 ## Anchor scroll
 
 Setup: `no-preference` and no `data-motion` unless the case says otherwise.

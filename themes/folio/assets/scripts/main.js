@@ -263,4 +263,22 @@
     });
     search.appendChild(placeholder);
   }
+
+  if (window.console && typeof console.log === "function") {
+    console.log(
+      [
+        "",
+        "    _______________________",
+        "   | |#| |#|#| | |#| |#|#| |",
+        "   | |#| |#|#| | |#| |#|#| |",
+        "   |=======================|",
+        "   | |#|#| | |#| |#|#| | |#|",
+        "   | |#|#| | |#| |#|#| | |#|",
+        "   '-----------------------'",
+        "",
+        "   You found the shelf. Encontraste el estante.",
+        "",
+      ].join("\n"),
+    );
+  }
 })();
