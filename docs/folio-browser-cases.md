@@ -49,7 +49,8 @@ Run on cards, columns, tabs, steps and details, once with `prefers-color-scheme:
 
 | Id | Steps | Expected |
 |---|---|---|
-| C1 | Open the developer console and load any page. | A drawing of a shelf and one line of text appear once, with no error or warning. |
+| C1 | Open the developer console of a Chromium or Firefox browser and load any page. | Two messages appear once: an image of the shelf with its cat, which builds itself in about 3 s and then keeps the tail moving, and one line of text. No error or warning. |
+| C2 | Emulate `reduce`, or set `data-motion="off"`, and load a page. | The same image appears and it is still. |
 
 ## Anchor scroll
 
