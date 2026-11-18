@@ -107,10 +107,7 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
     }
 }
 
-/// Opens a code block. `tabindex="0"` lets a keyboard reach a block that scrolls sideways on a
-/// narrow screen (WCAG 2.1.1), so its hidden end can be read without a pointer.
 const PRE_OPEN: &str = "<pre tabindex=\"0\"><code>";
-/// Closes a block opened with [`PRE_OPEN`].
 const PRE_CLOSE: &str = "</code></pre>\n";
 
 /// Renders one piece of Markdown that starts at byte `base` of the page body.

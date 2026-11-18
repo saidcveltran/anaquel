@@ -333,8 +333,6 @@ fn code_with_an_unknown_language_or_none_stays_plain_and_escaped() {
 
 #[test]
 fn every_code_block_can_take_keyboard_focus() {
-    // A block that is wider than a phone screen scrolls inside itself; without a tab stop a
-    // keyboard user cannot reach its hidden end. Each kind of block gets exactly one.
     let c = compose_page(
         "```rust\nfn main() {}\n```\n\n```nonsense\nx\n```\n\n```\ny\n```\n\n    z\n\n:::hint\n```\nw\n```\n:::\n",
     );
