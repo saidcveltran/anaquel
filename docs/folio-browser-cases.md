@@ -49,7 +49,7 @@ Run on cards, columns, tabs, steps and details, once with `prefers-color-scheme:
 
 | Id | Steps | Expected |
 |---|---|---|
-| C1 | Open the developer console of a Chromium or Firefox browser and load any page. | Two messages appear once: the logo, a shelf with its cat and the word `anaquel`, which builds itself in about 4 s with the letters drawn one by one and then keeps the tail moving, and the line `Hello from Team! This is Anaquel Dev Team.`. No error or warning. |
+| C1 | Open the developer console of a Chromium or Firefox browser and load any page. | One message appears once: the logo, a shelf with its cat read as the letter A, then `naquel`, and under it `Hello from Team! This is Anaquel Dev Team.`. It builds itself in about 5.5 s, the letters drawn one by one and the line typed character by character, and then the tail keeps moving. No error or warning. |
 | C2 | Emulate `reduce`, or set `data-motion="off"`, and load a page. | The same image appears and it is still. |
 
 ## Anchor scroll
