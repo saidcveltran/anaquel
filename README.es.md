@@ -22,7 +22,7 @@
 
 Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático para Cloudflare Workers, sin IA en el producto.
 
-> **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. De la 0.1.1 se comprobaron con los archivos reales de la versión los dos archivos, sus sumas SHA-256 y sus atestaciones de compilación, y el archivo de Windows se descomprimió y ejecutó `version`, `new`, `check --strict` y `build`. El instalador de shell se comprobó en Linux, en el modo que no toca tu `PATH`, solo con la 0.1.0; el instalador de PowerShell y el modo por defecto del instalador de shell no se comprobaron. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
+> **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. De la 0.1.1 se comprobaron con los archivos reales de la versión los dos archivos, sus sumas SHA-256 y sus atestaciones de compilación, y el archivo de Windows se descomprimió y ejecutó `version`, `new`, `check --strict` y `build`. El archivo de Linux lo descomprimió en Linux x86_64 un segundo probador y ejecutó esos mismos cuatro comandos y un `serve` de 10 minutos; allí se compararon las sumas, pero no se verificó la firma de la atestación. El instalador de shell se comprobó en Linux, en el modo que no toca tu `PATH`, solo con la 0.1.0; el instalador de PowerShell y el modo por defecto del instalador de shell no se comprobaron. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
 
 <p align="center">
   <picture>
@@ -176,7 +176,7 @@ El build es una cadena: ingest, catalog, compose, render, emit, index. Cada etap
 | `anaquel-catalog` | El árbol de tomos y páginas, URL, enlaces, términos y el registro de URL perdidas |
 | `anaquel-compose` | De Markdown a HTML seguro |
 | `anaquel-theme`, `anaquel-render` | El tema `folio` y las plantillas de página |
-| `anaquel-assets`, `anaquel-emit` | Recursos con huella, `_headers`, `_redirects`, `sitemap.xml`, 404 |
+| `anaquel-assets`, `anaquel-emit` | Recursos con huella, `_headers`, `_redirects`, `sitemap.xml`, `llms.txt`, 404 |
 | `anaquel-search` | El puerto hacia Pagefind |
 | `anaquel-pipeline` | Las etapas en orden |
 | `anaquel-preview` | El servidor de vista previa |

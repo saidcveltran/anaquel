@@ -22,7 +22,7 @@ English | [Español](README.es.md)
 
 Anaquel is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product.
 
-> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
+> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The Linux archive was unpacked on Linux x86_64 by a second tester and ran the same four commands and a 10-minute `serve`; there the sums were compared, but the attestation signature was not verified. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
 <p align="center">
   <picture>
@@ -176,7 +176,7 @@ The build is a pipeline: ingest, catalog, compose, render, emit, index. Each sta
 | `anaquel-catalog` | The tree of volumes and pages, URLs, links, terms and the lost-URL ledger |
 | `anaquel-compose` | Markdown to safe HTML |
 | `anaquel-theme`, `anaquel-render` | The `folio` theme and the page templates |
-| `anaquel-assets`, `anaquel-emit` | Fingerprinted assets, `_headers`, `_redirects`, `sitemap.xml`, 404 |
+| `anaquel-assets`, `anaquel-emit` | Fingerprinted assets, `_headers`, `_redirects`, `sitemap.xml`, `llms.txt`, 404 |
 | `anaquel-search` | The port to Pagefind |
 | `anaquel-pipeline` | The stages in order |
 | `anaquel-preview` | The preview server |
