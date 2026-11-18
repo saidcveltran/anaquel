@@ -89,6 +89,12 @@ class PublicGate(unittest.TestCase):
         self.assertEqual(len(self.findings({"a.txt": "x"}, author="someone" + "@example.org")), 2)
         self.assertEqual(self.findings({"a.txt": "x"}, message="m\n\nCo-Authored-" + "By: y", history=False), [])
 
+    def test_a_github_trailer_for_a_public_identity_is_allowed_but_not_another(self):
+        trailer = "Co-Authored-" + "By: Name <"
+        self.assertEqual(self.findings({"a.txt": "x"}, message=f"m\n\n{trailer}{PUBLIC}>"), [])
+        other = self.findings({"a.txt": "x"}, message=f"m\n\n{trailer}tool" + "@example.org>")
+        self.assertTrue(any("trace of an AI tool" in found for found in other), other)
+
     def test_private_names_are_found_only_when_given(self):
         files = {"a.txt": "see Secretname here", "b.bin": b"\0Secretname"}
         self.assertEqual(self.findings(files), [])

@@ -2,9 +2,23 @@
 
 All notable changes to this project are written here. The format follows
 [Keep a Changelog 1.1](https://keepachangelog.com/en/1.1.0/) and the project will follow
-[Semantic Versioning](https://semver.org/) from its first release. Nothing has been released yet.
+[Semantic Versioning](https://semver.org/) from its first release.
 
 ## [Unreleased]
+
+### Changed
+
+- Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
+- Theme `folio`: jumps to a heading last 200 to 400 ms in every browser, move focus to the heading, and Back and Forward restore the position at once. Limits: the script adds about 9 KB before compression; Firefox and Safari were not run; the cases are in `docs/folio-browser-cases.md`.
+- Theme `folio`: every page writes an animated logo and a greeting to the browser console. Limits: the script grows to about 19 KB before compression (about 5.5 KB after); Firefox and Safari were not run; the cases are C1 and C2 in `docs/folio-browser-cases.md`.
+
+### Removed
+
+- macOS support. CI no longer runs on macOS (its runners often got no machine and the jobs were cancelled after 15 minutes), and the release workflow builds archives for Windows x86_64 and Linux x86_64 only. Known limits: nobody builds or tests Anaquel on macOS or on any arm64 system; 0.1.0 keeps its two macOS archives but they are no longer kept up; the installer scripts of later releases will offer no macOS archive.
+
+## [0.1.0] - 2026-11-18
+
+First release.
 
 ### Added
 
@@ -37,11 +51,6 @@ All notable changes to this project are written here. The format follows
 - Fuzzing: four `cargo-fuzz` targets in `fuzz/` (`directive_grammar`, `front_matter`, `url_policy`, `link_resolver`) and a CI job that runs each for 150 seconds, ten minutes in all, on Linux with a pinned nightly compiler. The checks live in the new crate `anaquel-fuzzcheck`, which also runs them over the seed files and about 20 000 mutations on every system in the ordinary test run.
 - `tools/naming_gate.py` refuses crate, folder, file, module and type names that say nothing about their responsibility (`utils`, `helpers`, `common`, `shared`, `types`, `context`, `item`, a `new_` or `old_` prefix, a version suffix, an `impl` suffix); `tools/public_gate.py` looks in the tree and in the commit history for user folders, keys, e-mail addresses that are not public GitHub identities, traces of AI tools and editor metadata in binaries, and takes a private list of names with `--private FILE`; `tools/test_gates.py` tests both. CI runs the three in a `gates` job with the full history.
 
-- Theme `folio`: a jump to a heading on the same page (the table of contents, a link with `#anchor`) now scrolls smoothly, only when the system does not ask for reduced motion and `data-motion` is not `off`; otherwise it stays instant. With the style sheet alone the browser sets the duration from the distance (Chromium 156 on Linux: 0.4 s for 560 px, 0.9 s for 3 000 px, 1.5 s from 7 700 px), which passes the 500 ms ceiling of the plan.
-- Theme `folio`: a small script takes over those jumps so they last 200 to 400 ms with a slowing end in every browser. It acts only on a click without a modifier key, with the main button, on a link without `target` that points at a heading of the same page, when motion is allowed and `data-motion` is not `off`; every other click is left to the browser. It adds a history entry, moves focus to the heading (`tabindex="-1"` while it holds focus), stops when the reader scrolls, and stays inside `scroll-padding-top`. While it runs it keeps the root at `scroll-behavior: auto`, so Back and Forward restore the position at once. Without the script the style sheet still animates the jump, but it also animates Back and Forward (1.5 s over a long page in Chromium 156), and a second step taken before the first settles leaves a wrong position in the history. Limits: `main.js` is 19 KB before compression, with the console drawing below; Firefox and Safari were not run; `docs/folio-browser-cases.md` lists the cases, and the run is in the pull request.
-
-- Theme `folio`: every page writes an animated logo to the browser console, the brand shelf with its cat, whose A is the first letter of the name, then the letters `naquel`, and under them the line `Hello from Team! This is Anaquel Dev Team.`. The logo is a small SVG with CSS animation used as the background of a styled message: the frame, the shelves, the books and the cat arrive in turn, the letters are drawn one by one, the line is typed character by character, then the tail moves and a few books lift. It is still under reduced motion and when `data-motion` is `off`. It sends nothing anywhere. Cost: 2.3 KB more after compression in `main.js` on every page. A console that does not paint the image shows an empty message. Limits: the sites of everyone who uses the theme show it, which the maintainer chose; the logo is 360 px wide, so a narrower console cuts it. It was checked inside the developer console of Chromium 156, where it paints and animates; the console of Chromium drops a style value that holds two `url(`, so the drawing is written without a literal one inside it (a first version showed an empty message). Firefox, Safari and Brave itself were not run.
-
 ### Fixed
 
 - The `gates` CI job checked the merge commit that GitHub builds for a pull request, which carries the author's profile e-mail, and failed a clean change. It now checks the pull request at its own head.
@@ -52,7 +61,7 @@ All notable changes to this project are written here. The format follows
 
 - `anaquel serve` rebuilt the site about once a second on Linux with no file changes: `inotify` reports that a file was opened or read, and every build reads all sources. The watcher now ignores access events and acts only on creation, change and removal. Found by a teammate's test on Zorin OS; limit: checked by a unit test of the event filter on Windows, not yet by a long run on Linux.
 
-- Theme `folio`: `@view-transition` sat inside a style rule, where it is dropped, so page transitions never ran; it is now a direct child of the media query. `data-motion="off"` now also turns off transitions, animations and the view transition. Escape closes the menu and returns focus to its button. Tab panels are focusable (`tabindex="0"`). Limits: nothing in the theme sets `data-motion` yet (no visible switch), and scrollable code blocks are still not focusable; neither was checked in a browser by this change.
+- Theme `folio`: `@view-transition` sat inside a style rule, where it is dropped, so page transitions never ran; it is now a direct child of the media query. `data-motion="off"` now also turns off transitions, animations and the view transition. Escape closes the menu and returns focus to its button. Tab panels are focusable (`tabindex="0"`). Every code block is a tab stop (`<pre tabindex="0">`), so a keyboard can scroll one that is wider than the screen (found and fixed by a teammate). Limits: nothing in the theme sets `data-motion` yet (no visible switch); the page transition was seen working in Brave on Linux, the other changes were not checked by hand in a browser.
 
 ### Changed
 
@@ -64,21 +73,21 @@ All notable changes to this project are written here. The format follows
 
 ### Known limits
 
-- First CI run: Linux and Windows pass the format, clippy, test and sample-library steps; the licence check failed on the wildcard rule (fixed above) and its other rules were not reported as failing. The macOS job was still queued when this was written.
-- The theme was looked at in screenshots of one page at desktop width, in both colour schemes. A window 500 px wide (single column, menu button, toggle) was also looked at. Narrower widths were not: the headless browser used cannot go below 500 px, so 390 px is unchecked.
+- CI runs on Linux, Windows and macOS: format, clippy, tests, the sample library, licences and advisories, an install smoke test of the release archive, a 10-minute fuzz run on Linux, and the naming and public gates.
+- The theme was looked at in screenshots at desktop width in both colour schemes, at 500 px by the author, and at 390 px by a teammate in Chromium on Linux (light scheme on every directive page; dark scheme only for hint and code blocks). Other browsers, Safari on iOS and dark-scheme cards, columns, tabs, steps and details at 390 px were not checked. The keyboard and reduced-motion review is written but not run.
 - The search UI was checked by script in a browser: results appear and there is no CSP violation.
 - Search needs the external `pagefind` program; it is not linked into the binary (the library tree is large and contains C code).
-- The `indexing_slicing` lint is not denied yet; fuzzing of the directive, compose and schema parsers is planned for M1.
+- The `indexing_slicing` lint is not denied yet.
 - The embedded Literata font is a Latin subset (Western European); text in other scripts falls back to system serif fonts.
 - Theme UI strings are English only; translation arrives with the language work of M2.
 - The crates are not publishable yet: the theme files live outside the crate folders.
 - The conduct contact is the private security channel of GitHub, because the project has no public mailbox.
 - Publishing to Cloudflare Workers is not documented or tested.
-- The release archives are not signed by Windows or Apple (no spending), so SmartScreen and Gatekeeper will warn. The macOS and Linux archives and the installers were planned by `dist` but only the Windows archive was built and smoke-tested locally; the CI job covers the other two systems on its first run. There are no minisign signatures, no `upgrade` command and no `version --verbose` with the tagged commit yet (M2).
+- The release archives are not signed by Windows or Apple (no spending), so SmartScreen and Gatekeeper will warn. `dist` builds the archives and installers when a tag is pushed; the CI install smoke test builds, unpacks and runs the archive of each system, but the installer scripts and `gh attestation verify` have not been checked against real release files. There are no minisign signatures, no `upgrade` command and no `version --verbose` with the tagged commit yet (M2).
 - There is no Linux arm64 archive.
 - Directive limits: the opening line must start at column 0 with the name right after the colons; a fenced code block indented by four spaces or more is not tracked, so a `:::` line inside one is read as a directive. `include`, `variables` and `updates` are not implemented. The tab script and the directive styles were looked at in screenshots at desktop width only; the embed frame was seen to load, but playing a video was not tested. Pages without `description` still get one made from the whole page text, which starts with the title.
 - Highlighting uses the grammars bundled with `syntect`: there is none for TOML, TypeScript, JSX, PowerShell, Dockerfile, Kotlin, Swift or INI, so those blocks are shown plain. Adding grammars means bundling and licensing more files; not done.
 - The attack suite checks the output with a scanner written for it, not with a browser. It does not run script and does not cover browsers' own parsing quirks beyond the cases listed in it.
 - Images may come from any https address (`img-src` allows `https:`), so a page can make a reader's browser contact another site. An SVG file in a library is copied as it is; the site-wide Content-Security-Policy is what stops script in it, and only when the host serves the `_headers` file.
-- The fuzz targets were not run on the machine that wrote them (Windows cannot link the libFuzzer runtime); only the smoke test ran there. The first real run is the CI job; it stopped the `url_policy` target after about six minutes on an input that was a false alarm of the check itself (a page that shows the words `formaction="vbscript:` as text), so the check now reads real attributes (name and value, quoted or bare) inside tags and compares the scheme of the URL ones after dropping spaces and control characters; the second run stopped on a code fence whose information string ends up quoted in a `class` attribute, which a text search for the same words also took for an attribute. Both inputs are seeds. Ten minutes in all is a floor, not a guarantee: the parsers have not been fuzzed for hours.
+- The fuzz targets run only in CI on Linux (Windows cannot link the libFuzzer runtime); on the other systems a smoke test replays the corpus. The first CI runs stopped the `url_policy` target twice on inputs that were false alarms of the check itself (a page that shows the words `formaction="vbscript:` as text, and a code fence whose information string ends up quoted in a `class` attribute); the check now reads real attributes inside tags, and both inputs are seeds. The last run of ten minutes passed. Ten minutes is a floor, not a guarantee: the parsers have not been fuzzed for hours.
 - The public gate in CI cannot know the private names of a maintainer; those are checked only where the maintainer runs it with `--private`. The naming gate reads type names with one line-by-line pattern, not a Rust parser, so an item declared in an unusual layout is not seen.
