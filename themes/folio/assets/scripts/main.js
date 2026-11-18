@@ -32,7 +32,9 @@
       setOpen(!document.body.classList.contains("nav-open"));
     });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape" || !document.body.classList.contains("nav-open")) return;
+      setOpen(false);
+      navToggle.focus();
     });
   }
 
@@ -70,6 +72,7 @@
       button.textContent = panel.getAttribute("data-title") || "";
       panel.id = id + "-panel";
       panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("tabindex", "0");
       panel.setAttribute("aria-labelledby", button.id);
       list.appendChild(button);
       return button;

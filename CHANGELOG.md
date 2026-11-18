@@ -45,6 +45,8 @@ All notable changes to this project are written here. The format follows
 
 - `anaquel serve` rebuilt the site about once a second on Linux with no file changes: `inotify` reports that a file was opened or read, and every build reads all sources. The watcher now ignores access events and acts only on creation, change and removal. Found by a teammate's test on Zorin OS; limit: checked by a unit test of the event filter on Windows, not yet by a long run on Linux.
 
+- Theme `folio`: `@view-transition` sat inside a style rule, where it is dropped, so page transitions never ran; it is now a direct child of the media query. `data-motion="off"` now also turns off transitions, animations and the view transition. Escape closes the menu and returns focus to its button. Tab panels are focusable (`tabindex="0"`). Limits: nothing in the theme sets `data-motion` yet (no visible switch), and scrollable code blocks are still not focusable; neither was checked in a browser by this change.
+
 ### Changed
 
 - Two types were renamed because the naming gate refused them: `Shared` (preview server state) is now `ServedSite` and `Context` (template input) is now `TemplateInput`.
