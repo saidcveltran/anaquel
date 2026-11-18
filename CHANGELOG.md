@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Design page `docs/decisions/0002-relocate-and-aliases.md` for `anaquel relocate` and aliases. Limit: nothing is implemented; the page is a proposal.
+
 ## [0.1.1] - 2026-11-18
 
 Theme changes and the end of macOS support. The engine has no code change.
