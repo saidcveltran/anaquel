@@ -55,7 +55,7 @@ Special cases:
 
 | Case | Answer |
 | --- | --- |
-| `<from>` missing, not `.md`, or outside `volumes/` | `AQ0901` |
+| `<from>` missing, not `.md`, or outside `volumes/` and `shelves/NAME/volumes/` | `AQ0901` |
 | `<to>` has a segment the address rules refuse (`url_segment_problem`) | `AQ0902`, same reason text |
 | `<to>` is under a volume or shelf that does not exist | `AQ0902`; nothing is created |
 | Move between shelves, or from `volumes/` into a shelf | allowed; the old address becomes an alias of the new one, and a volume name may repeat in two shelves |
