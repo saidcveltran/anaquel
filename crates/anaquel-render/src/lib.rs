@@ -50,6 +50,17 @@ pub struct TocItem {
     pub anchor: String,
 }
 
+/// A shelf with its volumes, or the volumes that sit on no shelf (no title).
+#[derive(Debug, Clone, Serialize)]
+pub struct GroupView {
+    /// Name of the shelf; `None` for volumes with no shelf.
+    pub title: Option<String>,
+    /// One sentence about the shelf, when there is one.
+    pub description: Option<String>,
+    /// Volumes of the group in display order.
+    pub volumes: Vec<LinkView>,
+}
+
 /// What a template may know about the library.
 #[derive(Debug, Clone, Serialize)]
 pub struct SiteView {
@@ -63,6 +74,8 @@ pub struct SiteView {
     pub base_url: Option<String>,
     /// Volumes in display order.
     pub volumes: Vec<LinkView>,
+    /// Volumes grouped as the home page shows them: those with no shelf first, then each shelf.
+    pub groups: Vec<GroupView>,
     /// Whether a search index is part of the output.
     pub search: bool,
     /// Where the search bundle lives, with a trailing slash.
@@ -172,6 +185,15 @@ mod tests {
                 url: "/guide/".to_owned(),
                 description: None,
             }],
+            groups: vec![GroupView {
+                title: Some("Shelf <&>".to_owned()),
+                description: None,
+                volumes: vec![LinkView {
+                    title: "Guide".to_owned(),
+                    url: "/guide/".to_owned(),
+                    description: None,
+                }],
+            }],
             search: false,
             search_path: "/_pagefind/".to_owned(),
         }
@@ -244,11 +266,9 @@ mod tests {
         let r = Renderer::new(&Theme::folio().unwrap()).unwrap();
         let mut p = page();
         p.kind = "home";
-        assert!(
-            r.render("home.html", &site(), &p, &assets())
-                .unwrap()
-                .contains("Guide")
-        );
+        let home = r.render("home.html", &site(), &p, &assets()).unwrap();
+        assert!(home.contains("Guide"));
+        assert!(home.contains("<h2>Shelf &lt;&amp;&gt;</h2>"), "{home}");
         assert!(
             r.render("not_found.html", &site(), &p, &assets())
                 .unwrap()

@@ -73,7 +73,7 @@ Cada dependencia está fijada a una versión exacta. [THIRD-PARTY.md](THIRD-PART
 
 ## Qué hace
 
-Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros). Cada tomo tiene secciones y páginas. Los **Estantes** (Shelves), que agrupan tomos, están previstos.
+Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros). Cada tomo tiene secciones y páginas. Los **Estantes** (Shelves) agrupan tomos bajo una dirección común; están en la versión de desarrollo y todavía no en una versión publicada (mira `examples/multi-shelf`).
 
 | Función | Etapa | Detalle |
 | --- | --- | --- |

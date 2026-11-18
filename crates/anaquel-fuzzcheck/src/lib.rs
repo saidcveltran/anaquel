@@ -83,6 +83,7 @@ fn volume(pages: &[(&str, &str)]) -> VolumeSource {
     };
     VolumeSource {
         slug: "guide".to_owned(),
+        shelf: None,
         manifest,
         pages: pages
             .iter()
@@ -97,7 +98,7 @@ fn volume(pages: &[(&str, &str)]) -> VolumeSource {
 
 fn catalog(pages: &[(&str, &str)]) -> Catalog {
     let headings: &(dyn Fn(&str) -> Vec<Heading> + Sync) = &headings_of;
-    Catalog::build(library(), vec![volume(pages)], headings).0
+    Catalog::build(library(), Vec::new(), vec![volume(pages)], headings).0
 }
 
 const FIXED: [(&str, &str); 3] = [

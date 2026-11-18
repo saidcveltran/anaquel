@@ -73,7 +73,7 @@ Every dependency is pinned to an exact version. [THIRD-PARTY.md](THIRD-PARTY.md)
 
 ## What it does
 
-A site is a **Library** made of **Volumes** (books). Each volume holds sections and pages. **Shelves**, which group volumes, are planned.
+A site is a **Library** made of **Volumes** (books). Each volume holds sections and pages. **Shelves** group volumes under a common address; they are in the development version, not in a release yet (see `examples/multi-shelf`).
 
 | Feature | Stage | Details |
 | --- | --- | --- |
