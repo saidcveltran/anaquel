@@ -18,7 +18,7 @@ Theme changes and the end of macOS support. The engine has no code change.
 
 ### Fixed
 
-- The public gate in CI read the `Co-authored-by` line that GitHub adds to a squash merge as a trace of an AI tool and failed every pull request. It now accepts that line when its address is a public GitHub identity. Limit: the line that caused it stays in the history of `main`, which was not rewritten.
+- The public gate in CI read the co-author trailer that GitHub adds to a squash merge as a trace of an AI tool and failed every pull request. It now accepts that trailer when its address is a public GitHub identity. Limit: the line that caused it stays in the history of `main`, which was not rewritten.
 
 ### Removed
 
