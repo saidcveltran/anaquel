@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anaquel_catalog::{Catalog, Entry, EntryId, EntryKind};
+use anaquel_emit::{LlmsLink, LlmsSection};
 use anaquel_render::{GroupView, LinkView, NavNode, PageView, SiteView, TocItem};
 
 /// What the theme may know about the whole library.
@@ -60,6 +61,38 @@ fn groups(catalog: &Catalog) -> Vec<GroupView> {
         }
     }
     groups.into_iter().map(|(_, group)| group).collect()
+}
+
+/// The sections of `llms.txt`: each volume with the pages that are emitted, in reading order.
+pub(crate) fn llms_sections(
+    catalog: &Catalog,
+    emitted: impl Fn(EntryId) -> bool,
+) -> Vec<LlmsSection> {
+    let mut sections = Vec::new();
+    for volume in catalog.volumes() {
+        let shelf = volume
+            .shelf
+            .as_deref()
+            .and_then(|slug| catalog.shelves().iter().find(|s| s.slug == slug));
+        let title = match shelf {
+            Some(shelf) => format!("{}: {}", shelf.manifest.title, volume.manifest.title),
+            None => volume.manifest.title.clone(),
+        };
+        let mut links = Vec::new();
+        let mut next = volume.root;
+        while let Some(entry) = next.and_then(|id| catalog.entry(id)) {
+            if emitted(entry.id) {
+                links.push(LlmsLink {
+                    title: entry.title.clone(),
+                    url: entry.url.clone(),
+                    description: entry.description.clone(),
+                });
+            }
+            next = entry.next;
+        }
+        sections.push(LlmsSection { title, links });
+    }
+    sections
 }
 
 fn volume_link(

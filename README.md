@@ -176,7 +176,7 @@ The build is a pipeline: ingest, catalog, compose, render, emit, index. Each sta
 | `anaquel-catalog` | The tree of volumes and pages, URLs, links, terms and the lost-URL ledger |
 | `anaquel-compose` | Markdown to safe HTML |
 | `anaquel-theme`, `anaquel-render` | The `folio` theme and the page templates |
-| `anaquel-assets`, `anaquel-emit` | Fingerprinted assets, `_headers`, `_redirects`, `sitemap.xml`, 404 |
+| `anaquel-assets`, `anaquel-emit` | Fingerprinted assets, `_headers`, `_redirects`, `sitemap.xml`, `llms.txt`, 404 |
 | `anaquel-search` | The port to Pagefind |
 | `anaquel-pipeline` | The stages in order |
 | `anaquel-preview` | The preview server |

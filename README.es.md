@@ -176,7 +176,7 @@ El build es una cadena: ingest, catalog, compose, render, emit, index. Cada etap
 | `anaquel-catalog` | El árbol de tomos y páginas, URL, enlaces, términos y el registro de URL perdidas |
 | `anaquel-compose` | De Markdown a HTML seguro |
 | `anaquel-theme`, `anaquel-render` | El tema `folio` y las plantillas de página |
-| `anaquel-assets`, `anaquel-emit` | Recursos con huella, `_headers`, `_redirects`, `sitemap.xml`, 404 |
+| `anaquel-assets`, `anaquel-emit` | Recursos con huella, `_headers`, `_redirects`, `sitemap.xml`, `llms.txt`, 404 |
 | `anaquel-search` | El puerto hacia Pagefind |
 | `anaquel-pipeline` | Las etapas en orden |
 | `anaquel-preview` | El servidor de vista previa |
