@@ -11,7 +11,7 @@ cargo test --workspace
 cargo run -p anaquel -- check examples/reference-library --strict
 ```
 
-All four must pass on Linux, Windows and macOS (CI runs them). CI also runs three small scripts
+All four must pass on Linux and Windows (CI runs them). CI also runs three small scripts
 that need only Python 3:
 
 ```text

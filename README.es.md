@@ -17,13 +17,12 @@
 [![Versión](https://img.shields.io/github/v/release/saidcveltran/anaquel?include_prereleases&label=Versi%C3%B3n&color=1F7A63&style=flat)](https://github.com/saidcveltran/anaquel/releases)
 <img src="https://img.shields.io/badge/Windows-compila%20en%20CI-0F1B2D?style=flat&logo=windows11&logoColor=white" alt="Windows compila en CI">
 <img src="https://img.shields.io/badge/Linux-compila%20en%20CI-1F7A63?style=flat&logo=linux&logoColor=white" alt="Linux compila en CI">
-<img src="https://img.shields.io/badge/macOS-compila%20en%20CI-0F1B2D?style=flat&logo=apple&logoColor=white" alt="macOS compila en CI">
 
 </div>
 
 Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático para Cloudflare Workers, sin IA en el producto.
 
-> **Estado: desarrollo temprano, sin versión publicada.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual ni instalador. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
+> **Estado: desarrollo temprano; 0.1.0 es la primera versión publicada.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual, y los scripts de instalación no se han probado con archivos reales de una versión publicada. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
 
 <p align="center">
   <picture>
@@ -39,7 +38,7 @@ Anaquel es un motor de documentación escrito en Rust que convierte Markdown en 
   <img src="https://img.shields.io/badge/Markdown-CommonMark%20%2B%20GFM-161D28?style=for-the-badge&logo=markdown&logoColor=white" alt="Markdown, CommonMark y GFM">
   <img src="https://img.shields.io/badge/Pagefind-b%C3%BAsqueda-161D28?style=for-the-badge" alt="Búsqueda con Pagefind">
   <img src="https://img.shields.io/badge/Cloudflare-destino%20Workers-161D28?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Workers como destino de despliegue">
-  <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%2C%20Windows%2C%20macOS-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions en Linux, Windows y macOS">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%20y%20Windows-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions en Linux y Windows">
 </p>
 
 | Biblioteca | Versión | Para qué |
@@ -100,7 +99,7 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 
 ## Instalación
 
-Todavía no hay binarios descargables, así que la única vía es compilar desde el código. Necesitas Rust 1.99 o posterior ([rustup](https://rustup.rs)) y Git.
+Descarga el archivo de tu sistema desde la [página de versiones](https://github.com/saidcveltran/anaquel/releases), compáralo con las sumas SHA-256 publicadas junto a él, descomprímelo y ejecuta `anaquel version`. O compila desde el código: necesitas Rust 1.99 o posterior ([rustup](https://rustup.rs)) y Git.
 
 ```text
 git clone https://github.com/saidcveltran/anaquel.git
@@ -111,12 +110,11 @@ cargo build --release -p anaquel
 | Sistema | Ejecutar |
 | --- | --- |
 | Windows (PowerShell) | `.\target\release\anaquel.exe version` |
-| macOS | `./target/release/anaquel version` |
 | Linux | `./target/release/anaquel version` |
 
 La búsqueda necesita el programa `pagefind` junto a `anaquel` o en el `PATH` (o la variable `ANAQUEL_PAGEFIND` con su ruta). Sin él, el sitio se compila igual, sin cuadro de búsqueda. `anaquel doctor` te dice en qué caso estás.
 
-Cuando existan versiones publicadas traerán sumas SHA-256. No estarán firmadas por Windows ni por Apple, así que SmartScreen y Gatekeeper avisarán; es lo esperado y se documentará con la primera versión. Nada de esto existe todavía.
+Las versiones traen sumas SHA-256. No están firmadas por Windows, así que SmartScreen avisará; es lo esperado. Solo se compilan y prueban Windows x86_64 y Linux x86_64. macOS y Linux arm64 no están soportados: nadie ejecuta Anaquel ahí, y las versiones posteriores a la 0.1.0 no traen archivo para macOS (la 0.1.0 conserva dos que ya no se mantienen), así que el instalador de una versión posterior falla en un Mac porque no encuentra archivo para ese sistema; es lo esperado, no un error.
 
 ## Ejemplo de cinco minutos
 
@@ -127,7 +125,7 @@ anaquel serve my-docs
 anaquel build my-docs
 ```
 
-`serve` imprime `http://127.0.0.1:1111/`; edita un archivo de `my-docs/volumes/guide/` y la página se recarga. `build` escribe el sitio en `my-docs/dist`, listo para subir a cualquier alojamiento estático. La integración continua ejecuta `new`, `check` y `build` en Linux, Windows y macOS en cada cambio, así que estos comandos están probados. Publicar en Cloudflare Workers aún no está documentado.
+`serve` imprime `http://127.0.0.1:1111/`; edita un archivo de `my-docs/volumes/guide/` y la página se recarga. `build` escribe el sitio en `my-docs/dist`, listo para subir a cualquier alojamiento estático. La integración continua ejecuta `new`, `check` y `build` en Linux y Windows en cada cambio, así que estos comandos están probados. Publicar en Cloudflare Workers aún no está documentado.
 
 ## Comandos
 
@@ -159,7 +157,7 @@ La última fila es la que cuenta hoy.
 
 ## Cuándo no usar Anaquel
 
-- Necesitas algo que funcione hoy en producción: Anaquel no tiene versión publicada ni manual.
+- Necesitas algo que funcione hoy en producción: Anaquel está en la 0.1 y no tiene manual.
 - Dependes de un ecosistema grande de temas, complementos e importadores: no existe, y una sola persona mantiene el proyecto.
 - Necesitas documentación versionada, varios idiomas o una referencia OpenAPI: están previstas, no construidas.
 - Quieres búsqueda sin instalar otro programa: Pagefind es externo.
@@ -197,7 +195,7 @@ El código `unsafe` está prohibido, la documentación que falta es un error y c
 
 ## Preguntas frecuentes
 
-**¿Está listo para usar?** No. Es la versión 0.1 sin versión publicada. Compila y sus pruebas pasan en CI en tres sistemas.
+**¿Está listo para usar?** No. Es la versión 0.1, la primera publicada. Compila y sus pruebas pasan en CI en tres sistemas.
 
 **¿Usa IA?** No. No hay IA en el producto, ni en el build, ni en el sitio que escribe.
 
@@ -207,7 +205,7 @@ El código `unsafe` está prohibido, la documentación que falta es un error y c
 
 ## Cambios
 
-Ver [CHANGELOG.md](CHANGELOG.md). Cada cambio queda anotado con sus límites conocidos. Aún no se ha publicado ninguna versión.
+Ver [CHANGELOG.md](CHANGELOG.md). Cada cambio queda anotado con sus límites conocidos.
 
 ## Licencia
 
