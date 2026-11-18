@@ -12,7 +12,7 @@ mod heading;
 mod highlight;
 mod markdown;
 
-pub use heading::headings_of;
+pub use heading::{headings_of, options as markdown_options};
 pub use markdown::{Composed, compose};
 
 #[cfg(test)]

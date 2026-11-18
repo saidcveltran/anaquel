@@ -69,6 +69,16 @@ impl Code {
     pub const SEARCH: Self = Self(701);
     /// A `:::` directive is unknown, malformed, unclosed or in the wrong place.
     pub const DIRECTIVE: Self = Self(801);
+    /// `relocate`: the page to move is missing, is not Markdown or is outside a volume.
+    pub const RELOCATE_SOURCE: Self = Self(901);
+    /// `relocate`: the destination name or place is refused.
+    pub const RELOCATE_DESTINATION: Self = Self(902);
+    /// `relocate`: the destination is already a page or an alias of another page.
+    pub const RELOCATE_TAKEN: Self = Self(903);
+    /// `relocate`: a link or an alias list cannot be rewritten.
+    pub const RELOCATE_REWRITE: Self = Self(904);
+    /// `relocate`: the move swaps or chains addresses.
+    pub const RELOCATE_CHAIN: Self = Self(905);
 }
 
 impl fmt::Display for Code {

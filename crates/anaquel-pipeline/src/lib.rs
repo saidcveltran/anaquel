@@ -4,7 +4,10 @@
 //! writing anything. [`build`] runs all of them and writes the site.
 
 mod ingest;
+mod relocate;
 mod views;
+
+pub use relocate::{RelocateOptions, RelocateOutcome, relocate};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -59,6 +62,10 @@ struct Analysis {
 
 fn analyse(root: &Path, report: &mut Report) -> Option<Analysis> {
     let ingested = ingest::ingest(root, ENGINE_VERSION, report)?;
+    Some(analyse_sources(ingested, report))
+}
+
+fn analyse_sources(ingested: ingest::Ingested, report: &mut Report) -> Analysis {
     let (catalog, catalog_report) = Catalog::build(
         ingested.library,
         ingested.shelves,
@@ -77,7 +84,7 @@ fn analyse(root: &Path, report: &mut Report) -> Option<Analysis> {
         report.extend(std::mem::take(&mut page.report));
         composed.insert(id, page);
     }
-    Some(Analysis { catalog, composed })
+    Analysis { catalog, composed }
 }
 
 /// Reads and checks a library without writing anything.

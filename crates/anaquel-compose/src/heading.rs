@@ -7,7 +7,7 @@ use unicode_normalization::UnicodeNormalization;
 
 /// Markdown features of Anaquel content: `CommonMark` plus GFM tables, task
 /// lists, strikethrough and footnotes. Wiki links stay off on purpose.
-pub(crate) fn options() -> Options {
+pub fn options() -> Options {
     Options::ENABLE_TABLES
         | Options::ENABLE_FOOTNOTES
         | Options::ENABLE_STRIKETHROUGH

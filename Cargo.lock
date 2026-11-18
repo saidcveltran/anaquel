@@ -104,6 +104,7 @@ dependencies = [
  "anaquel-schema",
  "anaquel-search",
  "anaquel-theme",
+ "pulldown-cmark",
  "rayon",
  "serde",
  "walkdir",
