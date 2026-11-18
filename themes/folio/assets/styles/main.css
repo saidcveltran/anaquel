@@ -114,6 +114,10 @@
   @view-transition {
     navigation: auto;
   }
+
+  :root:not([data-motion="off"]) {
+    scroll-behavior: smooth;
+  }
 }
 
 :root[data-motion="off"]::view-transition-group(*),

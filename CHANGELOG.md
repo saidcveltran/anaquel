@@ -37,6 +37,8 @@ All notable changes to this project are written here. The format follows
 - Fuzzing: four `cargo-fuzz` targets in `fuzz/` (`directive_grammar`, `front_matter`, `url_policy`, `link_resolver`) and a CI job that runs each for 150 seconds, ten minutes in all, on Linux with a pinned nightly compiler. The checks live in the new crate `anaquel-fuzzcheck`, which also runs them over the seed files and about 20 000 mutations on every system in the ordinary test run.
 - `tools/naming_gate.py` refuses crate, folder, file, module and type names that say nothing about their responsibility (`utils`, `helpers`, `common`, `shared`, `types`, `context`, `item`, a `new_` or `old_` prefix, a version suffix, an `impl` suffix); `tools/public_gate.py` looks in the tree and in the commit history for user folders, keys, e-mail addresses that are not public GitHub identities, traces of AI tools and editor metadata in binaries, and takes a private list of names with `--private FILE`; `tools/test_gates.py` tests both. CI runs the three in a `gates` job with the full history.
 
+- Theme `folio`: a jump to a heading on the same page (the table of contents, a link with `#anchor`) now scrolls smoothly, only when the system does not ask for reduced motion and `data-motion` is not `off`; otherwise it stays instant. No script. Limit: the browser sets the duration from the distance, so it passes the 500 ms ceiling of the plan on jumps longer than about 1 000 px; measured in Chromium 156 on Linux: 0.4 s for 560 px, 0.9 s for 3 000 px, 1.5 s from 7 700 px up.
+
 ### Fixed
 
 - The `gates` CI job checked the merge commit that GitHub builds for a pull request, which carries the author's profile e-mail, and failed a clean change. It now checks the pull request at its own head.
