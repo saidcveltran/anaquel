@@ -278,6 +278,18 @@ fn the_multi_shelf_example_builds_clean_and_groups_the_home_page() {
     assert!(guides < home.find("href=\"/guides/start/\"").unwrap());
     assert!(home.find("href=\"/guides/advanced/\"").unwrap() < reference);
     assert!(reference < home.find("href=\"/reference/start/\"").unwrap());
+
+    let llms = s.read("llms.txt");
+    assert!(llms.starts_with("# "), "{llms}");
+    let first = llms.find("](/about/)").expect("loose volume listed");
+    let step = llms
+        .find("](/guides/start/first-steps/)")
+        .expect("page of a shelved volume listed");
+    let last = llms
+        .find("](/reference/start/)")
+        .expect("second shelf listed");
+    assert!(first < step && step < last, "{llms}");
+    assert!(llms.contains("\n## Guides: "), "{llms}");
 }
 
 #[test]

@@ -14,10 +14,10 @@ use anaquel_catalog::{Catalog, Entry, EntryId};
 use anaquel_compose::{Composed, compose, headings_of};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_emit::{
-    Ledger, OutputFile, WriteStats, headers_file, lost_urls, redirects_file, sitemap, write_ledger,
-    write_outputs,
+    Ledger, OutputFile, WriteStats, headers_file, llms_txt, lost_urls, redirects_file, sitemap,
+    write_ledger, write_outputs,
 };
-use anaquel_render::Renderer;
+use anaquel_render::{Renderer, SiteView};
 use anaquel_search::{ExternalPagefind, SearchIndexer};
 use anaquel_theme::Theme;
 use rayon::prelude::*;
@@ -271,6 +271,14 @@ fn render_site(
             bytes: redirects_file(redirects).into_bytes(),
         });
     }
+    site_files(analysis, &site, search, &mut outputs);
+    outputs.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(outputs)
+}
+
+/// `_headers`, `llms.txt` and, with a base URL, `sitemap.xml`.
+fn site_files(analysis: &Analysis, site: &SiteView, search: bool, outputs: &mut Vec<OutputFile>) {
+    let catalog = &analysis.catalog;
     let mut frame_origins: Vec<String> = analysis
         .composed
         .values()
@@ -281,6 +289,17 @@ fn render_site(
     outputs.push(OutputFile {
         path: "_headers".to_owned(),
         bytes: headers_file(search, &frame_origins).into_bytes(),
+    });
+    let sections = views::llms_sections(catalog, |id| analysis.composed.contains_key(&id));
+    outputs.push(OutputFile {
+        path: "llms.txt".to_owned(),
+        bytes: llms_txt(
+            &site.title,
+            site.description.as_deref(),
+            site.base_url.as_deref(),
+            &sections,
+        )
+        .into_bytes(),
     });
     if let Some(base) = &site.base_url {
         let mut urls: Vec<String> = analysis
@@ -295,8 +314,6 @@ fn render_site(
             bytes: sitemap(base, &urls).into_bytes(),
         });
     }
-    outputs.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(outputs)
 }
 
 fn is_css(path: &str) -> bool {

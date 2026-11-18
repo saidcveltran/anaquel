@@ -10,5 +10,5 @@ mod site_files;
 mod writer;
 
 pub use ledger::{Ledger, lost_urls};
-pub use site_files::{headers_file, redirects_file, sitemap};
+pub use site_files::{LlmsLink, LlmsSection, headers_file, llms_txt, redirects_file, sitemap};
 pub use writer::{OutputFile, WriteStats, write_ledger, write_outputs};
