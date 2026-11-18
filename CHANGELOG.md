@@ -9,6 +9,7 @@ All notable changes to this project are written here. The format follows
 ### Changed
 
 - Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
+- Theme `folio`: jumps to a heading last 200 to 400 ms in every browser, move focus to the heading, and Back and Forward restore the position at once. Limits: the script adds about 9 KB before compression; Firefox and Safari were not run; the cases are in `docs/folio-browser-cases.md`.
 
 ### Removed
 

@@ -139,6 +139,95 @@
 
   Array.prototype.forEach.call(document.querySelectorAll(".tabs"), setupTabs);
 
+  var motionQuery = window.matchMedia("(prefers-reduced-motion: no-preference)");
+  var scrollKeys = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "];
+  var running = null;
+  root.style.scrollBehavior = "auto";
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function stopScroll() {
+    if (!running) return;
+    cancelAnimationFrame(running.frame);
+    running = null;
+  }
+
+  function samePageAnchor(link) {
+    if (!(link instanceof HTMLAnchorElement)) return null;
+    if (link.hasAttribute("download") || (link.target && link.target !== "_self")) return null;
+    if (link.origin !== location.origin || link.pathname !== location.pathname) return null;
+    if (link.search !== location.search || link.hash.length < 2) return null;
+    var id;
+    try {
+      id = decodeURIComponent(link.hash.slice(1));
+    } catch (error) {
+      return null;
+    }
+    var target = document.getElementById(id);
+    if (!target || !target.getClientRects().length) return null;
+    return target;
+  }
+
+  function scrollToTarget(target) {
+    stopScroll();
+    var padding = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+    var limit = root.scrollHeight - window.innerHeight;
+    var from = window.pageYOffset;
+    var to = Math.max(0, Math.min(target.getBoundingClientRect().top + from - padding, limit));
+    var distance = to - from;
+    if (Math.abs(distance) < 1) return;
+    var duration = Math.min(400, 200 + Math.abs(distance) * 0.05);
+    var state = { frame: 0 };
+    var begin = null;
+    running = state;
+    function step(now) {
+      if (begin === null) begin = now;
+      var t = Math.min(1, (now - begin) / duration);
+      window.scrollTo(window.pageXOffset, from + distance * easeOut(t));
+      if (t < 1) state.frame = requestAnimationFrame(step);
+      else stopScroll();
+    }
+    state.frame = requestAnimationFrame(step);
+  }
+
+  function focusTarget(target) {
+    if (!target.hasAttribute("tabindex")) {
+      target.setAttribute("tabindex", "-1");
+      target.addEventListener(
+        "blur",
+        function () {
+          target.removeAttribute("tabindex");
+        },
+        { once: true },
+      );
+    }
+    target.focus({ preventScroll: true });
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (!motionQuery.matches || root.getAttribute("data-motion") === "off") return;
+    var link = event.target.closest ? event.target.closest("a[href]") : null;
+    var target = link ? samePageAnchor(link) : null;
+    if (!target) return;
+    event.preventDefault();
+    if (location.hash !== link.hash) {
+      history.pushState(null, "", location.pathname + location.search + link.hash);
+    }
+    scrollToTarget(target);
+    focusTarget(target);
+  });
+
+  ["wheel", "touchstart", "mousedown"].forEach(function (name) {
+    window.addEventListener(name, stopScroll, { passive: true });
+  });
+  window.addEventListener("keydown", function (event) {
+    if (scrollKeys.indexOf(event.key) >= 0) stopScroll();
+  });
+
   // Search: the index is built by `anaquel build`; its UI is loaded on first use.
   var search = document.getElementById("search");
   if (search && search.dataset.bundle) {
