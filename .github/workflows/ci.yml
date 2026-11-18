@@ -91,9 +91,12 @@ jobs:
     name: naming and public gates
     runs-on: ubuntu-latest
     steps:
+      # A pull request is checked at its own head: the merge commit GitHub makes for the
+      # check is signed with the author's profile e-mail, which is not part of the history.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Tests of the gates
         run: python3 -I tools/test_gates.py
       - name: Names say what things are for
