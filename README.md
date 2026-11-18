@@ -89,7 +89,7 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | `folio` theme with light and dark schemes and the bundled Literata font | Available (0.1) | No npm, no framework; motion respects `prefers-reduced-motion` |
 | Directives: hint, details, tabs, cards, steps, columns, embed | Available (0.1) | One page each in [`examples/directives`](examples/directives); the set is closed |
 | Syntax highlighting of fenced code, in both colour schemes | Available (0.1) | Classes only, no inline styles; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java and more; others stay plain (no TOML, TypeScript or PowerShell yet) |
-| Fuzzing of the parsers | Planned (M1) | Nothing in this row is in the code today |
+| Fuzzing of the parsers | Available (0.1) | [`fuzz/`](fuzz): libFuzzer targets run for 10 minutes in CI on Linux only; on every system a smoke test replays the corpus; see [`fuzz/README.md`](fuzz/README.md) |
 | Shelves, several languages, `relocate`, `upgrade`, versioned docs | Planned (M2) | Nothing in this row is in the code today |
 
 ## Who it is for

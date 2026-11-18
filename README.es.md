@@ -89,7 +89,7 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Tema `folio` con esquemas claro y oscuro y la fuente Literata incluida | Disponible (0.1) | Sin npm ni framework; el movimiento respeta `prefers-reduced-motion` |
 | Directivas: aviso, detalles, pestañas, tarjetas, pasos, columnas, incrustado | Disponible (0.1) | Una página cada una en [`examples/directives`](examples/directives); el conjunto es cerrado |
 | Resaltado de sintaxis del código con valla, en ambos esquemas | Disponible (0.1) | Solo clases, sin estilos en línea; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java y más; los demás quedan en texto plano (aún sin TOML, TypeScript ni PowerShell) |
-| Fuzzing de los analizadores | Prevista (M1) | Nada de esta fila está en el código hoy |
+| Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
 | Estantes, varios idiomas, `relocate`, `upgrade`, documentación versionada | Prevista (M2) | Nada de esta fila está en el código hoy |
 
 ## Para quién es
