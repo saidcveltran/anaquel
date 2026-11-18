@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- CI runs its macOS jobs on `macos-15-intel`, because the Apple Silicon runner often got no machine and the jobs were cancelled after 15 minutes. Known limit: no test or smoke run of the Apple Silicon build happens in CI; the release workflow builds it, but nobody runs it before a tag.
+
 ## [0.1.0] - 2026-11-18
 
 First release.
