@@ -17,7 +17,7 @@ use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, Uri, header};
 use axum::response::Response;
-use notify::RecursiveMode;
+use notify::{EventKind, RecursiveMode};
 use notify_debouncer_full::new_debouncer;
 
 /// Path of the script that asks the server whether to reload.
@@ -76,6 +76,7 @@ pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
             let Ok(events) = result else { return };
             let relevant = events
                 .iter()
+                .filter(|e| changes_content(e.event.kind))
                 .flat_map(|e| e.event.paths.iter())
                 .any(|p| is_source(p, &ignored));
             if relevant {
@@ -118,6 +119,13 @@ pub fn serve(config: &Config, hooks: Hooks) -> Result<(), Diagnostic> {
             .await
             .map_err(|e| Diagnostic::error(Code::IO, format!("server stopped: {e}")))
     })
+}
+
+/// Whether an event means the file changed. On Linux, `inotify` also reports
+/// that a file was opened or read, and the build itself reads every source, so
+/// counting those would make each build start the next one.
+fn changes_content(kind: EventKind) -> bool {
+    !matches!(kind, EventKind::Access(_))
 }
 
 /// A change to a source file, not to build output, editor temporaries or Git.
@@ -368,6 +376,21 @@ mod tests {
         assert!(!is_source(Path::new("/lib/dist/index.html"), &ignored));
         assert!(!is_source(Path::new("/lib/.git/HEAD"), &ignored));
         assert!(!is_source(Path::new("/lib/volumes/a/page.md~"), &ignored));
+    }
+
+    #[test]
+    fn reading_a_file_does_not_count_as_a_change() {
+        use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind};
+        assert!(!changes_content(EventKind::Access(AccessKind::Open(
+            AccessMode::Any
+        ))));
+        assert!(!changes_content(EventKind::Access(AccessKind::Close(
+            AccessMode::Read
+        ))));
+        assert!(changes_content(EventKind::Create(CreateKind::File)));
+        assert!(changes_content(EventKind::Modify(ModifyKind::Any)));
+        assert!(changes_content(EventKind::Remove(RemoveKind::File)));
+        assert!(changes_content(EventKind::Any));
     }
 
     #[test]

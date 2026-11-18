@@ -43,6 +43,8 @@ All notable changes to this project are written here. The format follows
 
 - The theme toggle showed a moon in both colour schemes. It now shows a moon in the light scheme and a sun in the dark one, chosen by CSS only.
 
+- `anaquel serve` rebuilt the site about once a second on Linux with no file changes: `inotify` reports that a file was opened or read, and every build reads all sources. The watcher now ignores access events and acts only on creation, change and removal. Found by a teammate's test on Zorin OS; limit: checked by a unit test of the event filter on Windows, not yet by a long run on Linux.
+
 ### Changed
 
 - Two types were renamed because the naming gate refused them: `Shared` (preview server state) is now `ServedSite` and `Context` (template input) is now `TemplateInput`.
