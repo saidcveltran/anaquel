@@ -107,6 +107,9 @@ pub fn compose(catalog: &Catalog, entry: &Entry) -> Composed {
     }
 }
 
+const PRE_OPEN: &str = "<pre tabindex=\"0\"><code>";
+const PRE_CLOSE: &str = "</code></pre>\n";
+
 /// Renders one piece of Markdown that starts at byte `base` of the page body.
 #[allow(
     clippy::too_many_lines,
@@ -120,7 +123,7 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
     let mut link_depth = 0usize;
     let mut dropping = false;
     // A fenced block with a language is collected whole, then highlighted at its end.
-    let mut capture: Option<(CodeBlockKind<'_>, String, String)> = None;
+    let mut capture: Option<(String, String)> = None;
 
     for (event, range) in Parser::new_ext(text, options()).into_offset_iter() {
         let at = base + range.start;
@@ -151,7 +154,7 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
             state.headings.next();
             continue;
         }
-        if let (Some((_, _, code)), Event::Text(t)) = (capture.as_mut(), &event) {
+        if let (Some((_, code)), Event::Text(t)) = (capture.as_mut(), &event) {
             state.plain.push_str(t);
             code.push_str(t);
             continue;
@@ -213,29 +216,25 @@ pub(crate) fn render_markdown(state: &mut State<'_>, text: &str, base: usize) ->
                     CodeBlockKind::Indented => None,
                 };
                 if let Some(language) = language {
-                    capture = Some((kind, language, String::new()));
+                    capture = Some((language, String::new()));
                 } else {
-                    events.push(Event::Start(Tag::CodeBlock(kind)));
+                    events.push(Event::Html(PRE_OPEN.into()));
                 }
             }
             Event::End(TagEnd::CodeBlock) => {
                 code_depth = code_depth.saturating_sub(1);
                 state.plain.push(' ');
-                if let Some((kind, language, code)) = capture.take() {
-                    if let Some(marked) = highlight(&language, &code) {
-                        events.push(Event::Html(
-                            format!(
-                                "<pre><code class=\"language-{language}\">{marked}</code></pre>\n"
-                            )
-                            .into(),
-                        ));
-                    } else {
-                        events.push(Event::Start(Tag::CodeBlock(kind)));
-                        events.push(Event::Text(code.into()));
-                        events.push(Event::End(TagEnd::CodeBlock));
-                    }
+                if let Some((language, code)) = capture.take() {
+                    let class = escape(&language);
+                    let body = highlight(&language, &code).unwrap_or_else(|| escape(&code));
+                    events.push(Event::Html(
+                        format!(
+                            "<pre tabindex=\"0\"><code class=\"language-{class}\">{body}</code></pre>\n"
+                        )
+                        .into(),
+                    ));
                 } else {
-                    events.push(Event::End(TagEnd::CodeBlock));
+                    events.push(Event::Html(PRE_CLOSE.into()));
                 }
             }
             Event::Start(Tag::Link {

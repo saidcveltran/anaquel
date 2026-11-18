@@ -17,13 +17,12 @@ English | [Español](README.es.md)
 [![Release](https://img.shields.io/github/v/release/saidcveltran/anaquel?include_prereleases&label=Release&color=1F7A63&style=flat)](https://github.com/saidcveltran/anaquel/releases)
 <img src="https://img.shields.io/badge/Windows-builds%20in%20CI-0F1B2D?style=flat&logo=windows11&logoColor=white" alt="Windows builds in CI">
 <img src="https://img.shields.io/badge/Linux-builds%20in%20CI-1F7A63?style=flat&logo=linux&logoColor=white" alt="Linux builds in CI">
-<img src="https://img.shields.io/badge/macOS-builds%20in%20CI-0F1B2D?style=flat&logo=apple&logoColor=white" alt="macOS builds in CI">
 
 </div>
 
 Anaquel is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product.
 
-> **Status: early development, no release yet.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual and no installer. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
+> **Status: early development; 0.1.0 is the first release.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. The 0.1.0 archives, their SHA-256 sums and the shell installer in its mode that leaves your `PATH` alone were checked against the real release files on Linux; the PowerShell installer and the default mode of the shell installer were not. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
 <p align="center">
   <picture>
@@ -39,7 +38,7 @@ Anaquel is a documentation engine written in Rust that turns Markdown into a sta
   <img src="https://img.shields.io/badge/Markdown-CommonMark%20%2B%20GFM-161D28?style=for-the-badge&logo=markdown&logoColor=white" alt="Markdown, CommonMark and GFM">
   <img src="https://img.shields.io/badge/Pagefind-search-161D28?style=for-the-badge" alt="Pagefind search">
   <img src="https://img.shields.io/badge/Cloudflare-Workers%20target-161D28?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Workers as the deployment target">
-  <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%2C%20Windows%2C%20macOS-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions on Linux, Windows and macOS">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%20and%20Windows-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions on Linux and Windows">
 </p>
 
 | Library | Version | Used for |
@@ -100,7 +99,7 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 
 ## Install
 
-There are no downloadable binaries yet, so the only way is to build from source. You need Rust 1.99 or newer ([rustup](https://rustup.rs)) and Git.
+Download the archive for your system from the [releases page](https://github.com/saidcveltran/anaquel/releases), check it against the SHA-256 sums published with it, unpack it and run `anaquel version`. Or build from source: you need Rust 1.99 or newer ([rustup](https://rustup.rs)) and Git.
 
 ```text
 git clone https://github.com/saidcveltran/anaquel.git
@@ -111,12 +110,11 @@ cargo build --release -p anaquel
 | System | Run |
 | --- | --- |
 | Windows (PowerShell) | `.\target\release\anaquel.exe version` |
-| macOS | `./target/release/anaquel version` |
 | Linux | `./target/release/anaquel version` |
 
 Search needs the `pagefind` program next to `anaquel` or on your `PATH` (or set `ANAQUEL_PAGEFIND` to its path). Without it the site still builds, without a search box. `anaquel doctor` tells you which case you are in.
 
-When releases exist they will come with SHA-256 sums. They will not be signed by Windows or Apple, so SmartScreen and Gatekeeper will warn you; that is expected and will be documented with the first release. None of this exists yet.
+Releases come with SHA-256 sums. They are not signed by Windows, so SmartScreen will warn you; that is expected. Only Windows x86_64 and Linux x86_64 are built and tested. macOS and Linux arm64 are not supported: nobody runs Anaquel there, and releases after 0.1.0 carry no macOS archive (0.1.0 still has two that are no longer kept up), so the installer script of a later release fails on a Mac because it finds no archive for that system; that is expected, not a bug.
 
 ## Five-minute example
 
@@ -127,7 +125,7 @@ anaquel serve my-docs
 anaquel build my-docs
 ```
 
-`serve` prints `http://127.0.0.1:1111/`; edit a file under `my-docs/volumes/guide/` and the page reloads. `build` writes the site to `my-docs/dist`, ready to upload to any static host. CI runs `new`, `check` and `build` on Linux, Windows and macOS on every change, so these commands are tested. Publishing to Cloudflare Workers is not documented yet.
+`serve` prints `http://127.0.0.1:1111/`; edit a file under `my-docs/volumes/guide/` and the page reloads. `build` writes the site to `my-docs/dist`, ready to upload to any static host. CI runs `new`, `check` and `build` on Linux and Windows on every change, so these commands are tested. Publishing to Cloudflare Workers is not documented yet.
 
 ## Commands
 
@@ -159,7 +157,7 @@ The last row is the one that matters today.
 
 ## When not to use Anaquel
 
-- You need something that works in production today: Anaquel has no release and no manual.
+- You need something that works in production today: Anaquel is at 0.1 and has no manual.
 - You rely on a large ecosystem of themes, plugins and importers: there are none, and one person maintains the project.
 - You need versioned docs, several languages or an OpenAPI reference: they are planned, not built.
 - You want search without installing another program: Pagefind is external.
@@ -197,7 +195,7 @@ python -I tools/check_images.py
 
 ## FAQ
 
-**Is it ready to use?** No. It is version 0.1 with no release. It builds and its tests pass in CI on three systems.
+**Is it ready to use?** No. It is version 0.1, the first release. It builds and its tests pass in CI on three systems.
 
 **Does it use AI?** No. There is no AI in the product, in the build or in the site it writes.
 
@@ -207,7 +205,7 @@ python -I tools/check_images.py
 
 ## Changes
 
-See [CHANGELOG.md](CHANGELOG.md). Every change is recorded with its known limits. Nothing has been released.
+See [CHANGELOG.md](CHANGELOG.md). Every change is recorded with its known limits.
 
 ## License
 

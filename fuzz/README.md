@@ -11,7 +11,7 @@ Four targets feed random bytes to the parts of Anaquel that read untrusted text:
 
 The checks are in [`crates/anaquel-fuzzcheck`](../crates/anaquel-fuzzcheck/src/lib.rs). The same checks
 run over the seed files in `corpus/` and a few thousand mutations of them in the ordinary test run
-(`cargo test -p anaquel-fuzzcheck`), on Linux, Windows and macOS. That is a regression net, not fuzzing.
+(`cargo test -p anaquel-fuzzcheck`), on Linux and Windows. That is a regression net, not fuzzing.
 
 Real fuzzing needs a nightly compiler and Linux (the libFuzzer runtime does not link on Windows):
 
