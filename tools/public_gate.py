@@ -36,6 +36,7 @@ TEXT_PATTERNS = [
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # Public GitHub identities: they appear on commits and merges made through the web interface.
 PUBLIC_EMAIL = re.compile(r"^([0-9]+\+)?[a-z0-9-]+@users\.noreply\.github\.com$|^noreply@github\.com$", re.I)
+GITHUB_TRAILER = re.compile("^Co-Authored-" r"By: .*<([^>]*)>[ \t]*$", re.I | re.M)
 BINARY_NEEDLES = [b"Exif", b"C:\\Users"]
 # Files that name the patterns above and so cannot pass their own search.
 SELF = {"tools/public_gate.py", "tools/test_gates.py"}
@@ -70,6 +71,8 @@ class Gate:
                 self.findings.add(f"{label}: binary file contains {needle!r}")
 
     def scan_history(self, log):
+        # GitHub adds this trailer to a squash merge for a human collaborator.
+        log = GITHUB_TRAILER.sub(lambda m: "" if self.email_ok(m.group(1)) else m.group(0), log)
         self.scan_text("commit history", log)
         for line in log.split("\n"):
             identity = re.match(r"(.*) <(.*)>$", line)
