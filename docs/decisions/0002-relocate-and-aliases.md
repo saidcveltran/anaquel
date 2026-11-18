@@ -27,14 +27,17 @@ first alias, because the ledger also lists old redirects.
 
 ## Decision
 
-`anaquel relocate <from> <to>` (alias `mv`) takes two page paths under `volumes/`. It plans the
+`anaquel relocate <from> <to>` (alias `mv`) takes two page paths under `volumes/` or under
+`shelves/NAME/volumes/`. It plans the
 whole move, builds the catalog of the result in memory, and writes only if that build has no
 error. `--dry-run` prints the plan and writes nothing.
 
 The plan, in order:
 
 1. Rename the file. A missing folder is created inside the volume of `<to>`; a missing volume
-   is an error. A page may move to another volume; only the address prefix changes.
+   or shelf is an error, because `relocate` does not write `volume.toml` or `shelf.toml`. A page
+   may move to another volume, to another shelf, or from `volumes/` into a shelf; only the
+   address prefix changes (`/guides/start/x/` becomes `/reference/start/x/`).
 2. Add the old address to `aliases` of the moved page, keeping the aliases it already has.
    If the new address equals one of its own aliases, that alias is removed instead.
 3. Rewrite every inline link and reference definition that resolves to the old file. A link
@@ -54,6 +57,9 @@ Special cases:
 | --- | --- |
 | `<from>` missing, not `.md`, or outside `volumes/` | `AQ0901` |
 | `<to>` has a segment the address rules refuse (`url_segment_problem`) | `AQ0902`, same reason text |
+| `<to>` is under a volume or shelf that does not exist | `AQ0902`; nothing is created |
+| Move between shelves, or from `volumes/` into a shelf | allowed; the old address becomes an alias of the new one, and a volume name may repeat in two shelves |
+| The moved page uses a `[[term]]` or a relative link its new volume does not resolve | the final build reports `AQ0304` or `AQ0302`; nothing is written |
 | `<to>` is a Windows device name (`con`, `nul`, `com1`...), with or without extension | `AQ0902` on every system, so a library moved on Linux still opens on Windows |
 | `<to>` and another file are the same after case folding | `AQ0902`; a rename that only changes case goes through a temporary name |
 | Full path longer than 240 characters | `AQ0902` |
@@ -73,7 +79,10 @@ found by the final build keeps `AQ0301`.
 - Move, then `build --strict`: no error, redirect in the ledger and in `_redirects`.
 - Move twice, then move back: both old addresses still redirect, none points at itself.
 - Interrupted write restores the original files (a failing writer injected).
-- `slug` page, draft, `_index.md` and cross-volume moves.
+- `slug` page, draft and `_index.md` moves.
+- Moves between volumes, between shelves and from `volumes/` into a shelf, on a library shaped
+  like `examples/multi-shelf` (its two `start` volumes share a name), and a move whose page uses
+  a term of its old volume, which must leave the tree unchanged.
 - File tests run in CI on Linux and Windows; macOS is not covered.
 
 ## Limits
@@ -82,4 +91,6 @@ found by the final build keeps `AQ0301`.
   tracked by the ledger today.
 - Links written as raw HTML are not rewritten and stop the move (`AQ0904`).
 - Case-folding and the 240 limit are proposed rules, not measured on Windows.
+- That terms and links resolve per volume is read from the error texts (`no term ... in this
+  volume`) and from `examples/multi-shelf`; a move between volumes was not run.
 - Nothing here is implemented; the README row for `relocate` stays "Planned (M2)".
