@@ -29,6 +29,7 @@ fn headings(body: &str) -> Vec<Heading> {
 fn volume(slug: &str, weight: i64, pages: &[(&str, &str)], files: &[&str]) -> VolumeSource {
     VolumeSource {
         slug: slug.to_owned(),
+        shelf: None,
         manifest: VolumeManifest::parse(
             &format!("title = \"{slug}\"\nweight = {weight}\n"),
             "volume.toml",
@@ -46,7 +47,7 @@ fn volume(slug: &str, weight: i64, pages: &[(&str, &str)], files: &[&str]) -> Vo
 }
 
 fn build(volumes: Vec<VolumeSource>) -> (Catalog, Report) {
-    Catalog::build(library(), volumes, &headings)
+    Catalog::build(library(), Vec::new(), volumes, &headings)
 }
 
 fn id_of(catalog: &Catalog, source: &str) -> EntryId {
@@ -303,4 +304,153 @@ fn drafts_stay_out_of_navigation() {
     let draft = c.entry(id_of(&c, "volumes/v/draft.md")).unwrap();
     assert!(draft.draft && draft.prev.is_none() && draft.next.is_none());
     assert!(!c.volumes()[0].order.contains(&draft.id));
+}
+
+fn shelf(slug: &str, weight: i64) -> ShelfSource {
+    ShelfSource {
+        slug: slug.to_owned(),
+        manifest: anaquel_schema::ShelfManifest::parse(
+            &format!("title = \"{slug}\"\nweight = {weight}\n"),
+            "shelf.toml",
+        )
+        .unwrap(),
+    }
+}
+
+fn on_shelf(shelf: &str, mut source: VolumeSource) -> VolumeSource {
+    source.shelf = Some(shelf.to_owned());
+    source
+}
+
+fn index_only(slug: &str, weight: i64) -> VolumeSource {
+    volume(
+        slug,
+        weight,
+        &[("_index.md", "# Home\n"), ("a.md", "# A\n")],
+        &["pic.png"],
+    )
+}
+
+#[test]
+fn a_volume_on_a_shelf_is_served_under_the_shelf() {
+    let (c, report) = Catalog::build(
+        library(),
+        vec![shelf("tools", 0)],
+        vec![on_shelf("tools", index_only("cli", 0))],
+        &headings,
+    );
+    assert!(!report.has_errors(), "{:?}", report.items());
+    assert_eq!(c.volumes()[0].address(), "tools/cli");
+    assert_eq!(c.volumes()[0].folder(), "shelves/tools/volumes/cli");
+    let urls: Vec<_> = c.entries().iter().map(|e| e.url.as_str()).collect();
+    assert_eq!(urls, ["/tools/cli/", "/tools/cli/a/"]);
+    let sources: Vec<_> = c.entries().iter().map(|e| e.source.as_str()).collect();
+    assert_eq!(
+        sources,
+        [
+            "shelves/tools/volumes/cli/_index.md",
+            "shelves/tools/volumes/cli/a.md"
+        ]
+    );
+    assert!(
+        c.static_files()
+            .contains(&("shelves/tools/volumes/cli/pic.png", "/tools/cli/pic.png"))
+    );
+}
+
+#[test]
+fn volumes_with_no_shelf_come_first_then_shelves_by_weight() {
+    let (c, report) = Catalog::build(
+        library(),
+        vec![shelf("late", 5), shelf("early", 1)],
+        vec![
+            on_shelf("late", index_only("z", 0)),
+            on_shelf("early", index_only("y", 0)),
+            index_only("loose", 9),
+        ],
+        &headings,
+    );
+    assert!(!report.has_errors(), "{:?}", report.items());
+    let order: Vec<_> = c.volumes().iter().map(Volume::address).collect();
+    assert_eq!(order, ["loose", "early/y", "late/z"]);
+    let shelves: Vec<_> = c.shelves().iter().map(|s| s.slug.as_str()).collect();
+    assert_eq!(shelves, ["early", "late"]);
+}
+
+#[test]
+fn the_same_volume_name_may_appear_on_two_shelves() {
+    let (c, report) = Catalog::build(
+        library(),
+        vec![shelf("one", 0), shelf("two", 1)],
+        vec![
+            on_shelf("one", index_only("guide", 0)),
+            on_shelf("two", index_only("guide", 0)),
+        ],
+        &headings,
+    );
+    assert!(!report.has_errors(), "{:?}", report.items());
+    let order: Vec<_> = c.volumes().iter().map(Volume::address).collect();
+    assert_eq!(order, ["one/guide", "two/guide"]);
+}
+
+#[test]
+fn a_volume_that_names_a_missing_shelf_is_an_error() {
+    let (_, report) = Catalog::build(
+        library(),
+        Vec::new(),
+        vec![on_shelf("ghost", index_only("cli", 0))],
+        &headings,
+    );
+    assert!(report.has_errors());
+    assert_eq!(codes(&report), [Code::MANIFEST]);
+}
+
+#[test]
+fn a_shelf_and_a_loose_volume_with_one_name_clash() {
+    let (_, report) = Catalog::build(
+        library(),
+        vec![shelf("tools", 0)],
+        vec![
+            index_only("tools", 0),
+            on_shelf("tools", index_only("cli", 0)),
+        ],
+        &headings,
+    );
+    assert!(
+        codes(&report).contains(&Code::DUPLICATE_URL),
+        "{:?}",
+        report.items()
+    );
+}
+
+#[test]
+fn a_relative_link_inside_a_shelved_volume_resolves() {
+    let (c, report) = Catalog::build(
+        library(),
+        vec![shelf("tools", 0)],
+        vec![on_shelf(
+            "tools",
+            volume(
+                "cli",
+                0,
+                &[
+                    ("_index.md", "# Home\n"),
+                    ("a.md", "# A\n\n[b](b.md) ![p](pic.png)\n"),
+                    ("b.md", "# B\n"),
+                ],
+                &["pic.png"],
+            ),
+        )],
+        &headings,
+    );
+    assert!(!report.has_errors(), "{:?}", report.items());
+    let a = id_of(&c, "shelves/tools/volumes/cli/a.md");
+    assert_eq!(
+        c.resolve_link(a, "b.md").unwrap(),
+        ResolvedLink::Internal("/tools/cli/b/".to_owned())
+    );
+    assert_eq!(
+        c.resolve_link(a, "pic.png").unwrap(),
+        ResolvedLink::Internal("/tools/cli/pic.png".to_owned())
+    );
 }

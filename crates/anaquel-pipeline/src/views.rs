@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anaquel_catalog::{Catalog, Entry, EntryId, EntryKind};
-use anaquel_render::{LinkView, NavNode, PageView, SiteView, TocItem};
+use anaquel_render::{GroupView, LinkView, NavNode, PageView, SiteView, TocItem};
 
 /// What the theme may know about the whole library.
 pub(crate) fn site_view(catalog: &Catalog, search: bool) -> SiteView {
@@ -26,9 +26,40 @@ pub(crate) fn site_view(catalog: &Catalog, search: bool) -> SiteView {
                 )
             })
             .collect(),
+        groups: groups(catalog),
         search,
         search_path: format!("/{}/", anaquel_search::BUNDLE_DIR),
     }
+}
+
+fn groups(catalog: &Catalog) -> Vec<GroupView> {
+    let mut groups: Vec<(Option<&str>, GroupView)> = Vec::new();
+    for volume in catalog.volumes() {
+        let Some(link) = volume_link(
+            catalog,
+            volume.root,
+            &volume.manifest.title,
+            volume.manifest.description.as_deref(),
+        ) else {
+            continue;
+        };
+        let key = volume.shelf.as_deref();
+        match groups.last_mut() {
+            Some((last, group)) if *last == key => group.volumes.push(link),
+            _ => {
+                let shelf = key.and_then(|slug| catalog.shelves().iter().find(|s| s.slug == slug));
+                groups.push((
+                    key,
+                    GroupView {
+                        title: shelf.map(|s| s.manifest.title.clone()),
+                        description: shelf.and_then(|s| s.manifest.description.clone()),
+                        volumes: vec![link],
+                    },
+                ));
+            }
+        }
+    }
+    groups.into_iter().map(|(_, group)| group).collect()
 }
 
 fn volume_link(

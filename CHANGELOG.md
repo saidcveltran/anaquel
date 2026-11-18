@@ -8,6 +8,7 @@ All notable changes to this project are written here. The format follows
 
 ### Added
 
+- Shelves: a folder `shelves/NAME/` with a `shelf.toml` (`title`, `description`, `weight`) holds volumes under `shelves/NAME/volumes/`, and each volume is served at `/NAME/VOLUME/`. Volumes in `volumes/` still work, and the home page lists them first, then each shelf with its title. `examples/multi-shelf` shows both. Limits: there is no page at `/NAME/` (only the volumes under it have pages); a shelf and a loose volume with one name are an error; a shelf with no volumes is not shown; the page and link rules are those of volumes, so a shelf name follows the same letters, digits, `-` and `_`.
 - Design page `docs/decisions/0002-relocate-and-aliases.md` for `anaquel relocate` and aliases. Limit: nothing is implemented; the page is a proposal.
 
 ## [0.1.1] - 2026-11-18

@@ -4,7 +4,9 @@ use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_schema::{LibraryManifest, parse_page, url_segment_problem};
 use unicode_normalization::UnicodeNormalization;
 
-use crate::model::{Entry, EntryId, EntryKind, Heading, PageSource, Volume, VolumeSource};
+use crate::model::{
+    Entry, EntryId, EntryKind, Heading, PageSource, Shelf, ShelfSource, Volume, VolumeSource,
+};
 use crate::{Catalog, LogicalPath};
 
 /// Lists the headings of a Markdown body, lines counted from 1 within the body.
@@ -14,16 +16,47 @@ const SECTION_FILE: &str = "_index.md";
 
 pub(crate) fn build(
     library: LibraryManifest,
+    shelf_sources: Vec<ShelfSource>,
     mut sources: Vec<VolumeSource>,
     headings_of: &HeadingsOf<'_>,
 ) -> (Catalog, Report) {
     let mut report = Report::new();
-    sources.sort_by(|a, b| {
+    let mut shelves: Vec<Shelf> = shelf_sources
+        .into_iter()
+        .map(|s| Shelf {
+            slug: s.slug,
+            manifest: s.manifest,
+        })
+        .collect();
+    shelves.sort_by(|a, b| {
         (a.manifest.weight, a.manifest.title.to_lowercase(), &a.slug).cmp(&(
             b.manifest.weight,
             b.manifest.title.to_lowercase(),
             &b.slug,
         ))
+    });
+    check_shelves(&shelves, &sources, &mut report);
+    let rank = |shelf: Option<&str>| {
+        shelf.map_or(0, |slug| {
+            shelves
+                .iter()
+                .position(|s| s.slug == slug)
+                .map_or(usize::MAX, |i| i + 1)
+        })
+    };
+    sources.sort_by(|a, b| {
+        (
+            rank(a.shelf.as_deref()),
+            a.manifest.weight,
+            a.manifest.title.to_lowercase(),
+            &a.slug,
+        )
+            .cmp(&(
+                rank(b.shelf.as_deref()),
+                b.manifest.weight,
+                b.manifest.title.to_lowercase(),
+                &b.slug,
+            ))
     });
 
     let mut entries: Vec<Entry> = Vec::new();
@@ -32,19 +65,25 @@ pub(crate) fn build(
 
     for (volume_index, source) in sources.into_iter().enumerate() {
         check_case_collisions(&source, &mut report);
+        let (folder, address) = (source.folder(), source.address());
         for file in &source.files {
-            let library_path = format!("volumes/{}/{}", source.slug, file.as_str());
-            files.insert(library_path, format!("/{}/{}", source.slug, file.as_str()));
+            let library_path = format!("{folder}/{}", file.as_str());
+            files.insert(library_path, format!("/{address}/{}", file.as_str()));
         }
         for page in &source.pages {
-            if let Some(entry) =
-                read_entry(volume_index, &source.slug, page, headings_of, &mut report)
-            {
+            if let Some(entry) = read_entry(
+                volume_index,
+                (&folder, &address, &source.slug),
+                page,
+                headings_of,
+                &mut report,
+            ) {
                 entries.push(entry);
             }
         }
         volumes.push(Volume {
             slug: source.slug,
+            shelf: source.shelf,
             manifest: source.manifest,
             root: None,
             order: Vec::new(),
@@ -70,6 +109,7 @@ pub(crate) fn build(
     (
         Catalog {
             library,
+            shelves,
             volumes,
             entries,
             by_source,
@@ -79,6 +119,39 @@ pub(crate) fn build(
         },
         report,
     )
+}
+
+fn check_shelves(shelves: &[Shelf], sources: &[VolumeSource], report: &mut Report) {
+    for source in sources {
+        match &source.shelf {
+            Some(shelf) if !shelves.iter().any(|s| &s.slug == shelf) => report.push(
+                Diagnostic::error(
+                    Code::MANIFEST,
+                    format!(
+                        "volume `{}` names the shelf `{shelf}`, which does not exist",
+                        source.slug
+                    ),
+                )
+                .at(source.folder()),
+            ),
+            None => {
+                if let Some(shelf) = shelves.iter().find(|s| s.slug == source.slug) {
+                    report.push(
+                        Diagnostic::error(
+                            Code::DUPLICATE_URL,
+                            format!(
+                                "the volume `{}` and the shelf `{}` both become /{}/",
+                                source.slug, shelf.slug, shelf.slug
+                            ),
+                        )
+                        .at(source.folder())
+                        .with_help("rename the volume folder or the shelf folder"),
+                    );
+                }
+            }
+            Some(_) => {}
+        }
+    }
 }
 
 fn check_case_collisions(source: &VolumeSource, report: &mut Report) {
@@ -95,7 +168,7 @@ fn check_case_collisions(source: &VolumeSource, report: &mut Report) {
                     Code::DUPLICATE_URL,
                     format!("`{path}` and `{first}` differ only by letter case"),
                 )
-                .at(format!("volumes/{}/{path}", source.slug))
+                .at(format!("{}/{path}", source.folder()))
                 .with_help("rename one of them; Windows and macOS cannot hold both"),
             );
         }
@@ -104,12 +177,12 @@ fn check_case_collisions(source: &VolumeSource, report: &mut Report) {
 
 fn read_entry(
     volume: usize,
-    slug: &str,
+    (folder, address, slug): (&str, &str, &str),
     page: &PageSource,
     headings_of: &HeadingsOf<'_>,
     report: &mut Report,
 ) -> Option<Entry> {
-    let source_text = format!("volumes/{slug}/{}", page.path.as_str());
+    let source_text = format!("{folder}/{}", page.path.as_str());
     let Ok(source) = LogicalPath::new(&source_text) else {
         report.push(
             Diagnostic::error(Code::IO, "path is not valid inside a library").at(source_text),
@@ -163,7 +236,7 @@ fn read_entry(
         }
     }
     let url = entry_url(
-        slug,
+        address,
         page.path.dir(),
         stem,
         kind,
@@ -273,7 +346,7 @@ fn link_tree(entries: &mut [Entry], volumes: &mut [Volume], report: &mut Report)
                     Code::MANIFEST,
                     format!("volume `{}` has no `_index.md`", volume.slug),
                 )
-                .at(format!("volumes/{}", volume.slug))
+                .at(volume.folder())
                 .with_help(
                     "create `_index.md` at the top of the volume: it is the volume's front page",
                 ),
@@ -311,7 +384,7 @@ fn link_tree(entries: &mut [Entry], volumes: &mut [Volume], report: &mut Report)
                         Code::MANIFEST,
                         format!("folder `{start}` has no `_index.md`"),
                     )
-                    .at(format!("volumes/{}/{start}", volume.slug))
+                    .at(format!("{}/{start}", volume.folder()))
                     .with_help("add an `_index.md` so the folder has a page of its own"),
                 );
             }

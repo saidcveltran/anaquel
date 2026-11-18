@@ -22,7 +22,7 @@ English | [Español](README.es.md)
 
 Anaquel is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product.
 
-> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. The 0.1.0 archives, their SHA-256 sums and the shell installer in its mode that leaves your `PATH` alone were checked against the real release files on Linux; the PowerShell installer and the default mode of the shell installer were not. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
+> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
 <p align="center">
   <picture>
@@ -73,7 +73,7 @@ Every dependency is pinned to an exact version. [THIRD-PARTY.md](THIRD-PARTY.md)
 
 ## What it does
 
-A site is a **Library** made of **Volumes** (books). Each volume holds sections and pages. **Shelves**, which group volumes, are planned.
+A site is a **Library** made of **Volumes** (books). Each volume holds sections and pages. **Shelves** group volumes under a common address; they are in the development version, not in a release yet (see `examples/multi-shelf`).
 
 | Feature | Stage | Details |
 | --- | --- | --- |
