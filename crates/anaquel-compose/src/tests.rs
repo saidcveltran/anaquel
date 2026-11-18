@@ -298,7 +298,7 @@ fn fenced_code_with_a_known_language_is_highlighted_with_classes() {
     let c = compose_page("```rust\nfn main() {}\n```\n");
     assert!(
         c.html
-            .starts_with("<pre><code class=\"language-rust\"><span class=\"s-"),
+            .starts_with("<pre tabindex=\"0\"><code class=\"language-rust\"><span class=\"s-"),
         "{}",
         c.html
     );
@@ -310,18 +310,42 @@ fn fenced_code_with_a_known_language_is_highlighted_with_classes() {
 fn code_with_an_unknown_language_or_none_stays_plain_and_escaped() {
     let c = compose_page("```nonsense\n<b>&\n```\n\n```\n<i>\n```\n\n    <u>\n");
     assert!(
-        c.html
-            .contains("<pre><code class=\"language-nonsense\">&lt;b&gt;&amp;\n</code></pre>"),
+        c.html.contains(
+            "<pre tabindex=\"0\"><code class=\"language-nonsense\">&lt;b&gt;&amp;\n</code></pre>"
+        ),
         "{}",
         c.html
     );
     assert!(
-        c.html.contains("<pre><code>&lt;i&gt;\n</code></pre>"),
+        c.html
+            .contains("<pre tabindex=\"0\"><code>&lt;i&gt;\n</code></pre>"),
         "{}",
         c.html
     );
-    assert!(c.html.contains("&lt;u&gt;"), "{}", c.html);
+    assert!(
+        c.html
+            .contains("<pre tabindex=\"0\"><code>&lt;u&gt;\n</code></pre>"),
+        "{}",
+        c.html
+    );
     assert_eq!(codes(&c), []);
+}
+
+#[test]
+fn every_code_block_can_take_keyboard_focus() {
+    // A block that is wider than a phone screen scrolls inside itself; without a tab stop a
+    // keyboard user cannot reach its hidden end. Each kind of block gets exactly one.
+    let c = compose_page(
+        "```rust\nfn main() {}\n```\n\n```nonsense\nx\n```\n\n```\ny\n```\n\n    z\n\n:::hint\n```\nw\n```\n:::\n",
+    );
+    assert_eq!(c.html.matches("<pre").count(), 5, "{}", c.html);
+    assert_eq!(
+        c.html.matches("<pre tabindex=\"0\">").count(),
+        5,
+        "{}",
+        c.html
+    );
+    assert_eq!(c.html.matches("</pre>").count(), 5, "{}", c.html);
 }
 
 #[test]
