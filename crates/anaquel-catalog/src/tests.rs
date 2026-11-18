@@ -454,3 +454,183 @@ fn a_relative_link_inside_a_shelved_volume_resolves() {
         ResolvedLink::Internal("/tools/cli/pic.png".to_owned())
     );
 }
+
+/// A volume with `language` and, optionally, `translation_of` written in its manifest.
+fn translated(
+    slug: &str,
+    language: Option<&str>,
+    translation_of: Option<&str>,
+    pages: &[(&str, &str)],
+) -> VolumeSource {
+    let mut source = volume(slug, 0, pages, &[]);
+    let lines = [
+        Some(format!("title = \"{slug}\"")),
+        language.map(|language| format!("language = \"{language}\"")),
+        translation_of.map(|target| format!("translation_of = \"{target}\"")),
+    ];
+    let text: Vec<String> = lines.into_iter().flatten().collect();
+    source.manifest = VolumeManifest::parse(&text.join("\n"), "volume.toml").unwrap();
+    source
+}
+
+const BOOK: &[(&str, &str)] = &[("_index.md", "# Home\n"), ("setup.md", "# Setup\n")];
+
+fn urls_of(alternates: &[Alternate]) -> Vec<(&str, &str)> {
+    alternates
+        .iter()
+        .map(|a| (a.language.as_str(), a.url.as_str()))
+        .collect()
+}
+
+fn assert_no_alternates(catalog: &Catalog, source: &str) {
+    let found = catalog.alternates(id_of(catalog, source));
+    assert_eq!(found, Vec::<Alternate>::new(), "{source}");
+}
+
+#[test]
+fn translated_volumes_list_each_other_page_by_page() {
+    let (c, report) = build(vec![
+        translated("guia", Some("es"), Some("guide"), BOOK),
+        translated("guide", None, None, BOOK),
+    ]);
+    assert!(!report.has_errors(), "{:?}", report.items());
+    let english = c.alternates(id_of(&c, "volumes/guide/setup.md"));
+    let spanish = c.alternates(id_of(&c, "volumes/guia/setup.md"));
+    assert_eq!(english, spanish, "every member sees the same list");
+    assert_eq!(
+        urls_of(&english),
+        [("en", "/guide/setup/"), ("es", "/guia/setup/")]
+    );
+    assert_eq!(c.volume_language(0), "es");
+    assert_eq!(
+        c.volume_language(1),
+        "en",
+        "the library language is the default"
+    );
+}
+
+#[test]
+fn a_page_missing_from_the_translation_has_no_alternates() {
+    let (c, report) = build(vec![
+        translated("guide", None, None, BOOK),
+        translated(
+            "guia",
+            Some("es"),
+            Some("guide"),
+            &[("_index.md", "# Inicio\n")],
+        ),
+    ]);
+    assert!(!report.has_errors(), "{:?}", report.items());
+    assert_no_alternates(&c, "volumes/guide/setup.md");
+    assert_eq!(c.alternates(id_of(&c, "volumes/guide/_index.md")).len(), 2);
+}
+
+#[test]
+fn a_draft_translation_is_not_offered() {
+    let (c, report) = build(vec![
+        translated("guide", None, None, BOOK),
+        translated(
+            "guia",
+            Some("es"),
+            Some("guide"),
+            &[
+                ("_index.md", "# Inicio\n"),
+                ("setup.md", "---\ndraft: true\n---\n# Instalación\n"),
+            ],
+        ),
+    ]);
+    assert!(!report.has_errors(), "{:?}", report.items());
+    assert_no_alternates(&c, "volumes/guide/setup.md");
+}
+
+#[test]
+fn volumes_without_translations_have_no_alternates() {
+    let (c, _) = build(vec![translated("guide", None, None, BOOK)]);
+    assert_no_alternates(&c, "volumes/guide/setup.md");
+}
+
+#[test]
+fn a_translation_may_live_on_another_shelf() {
+    let (c, report) = Catalog::build(
+        library(),
+        vec![shelf("es", 0)],
+        vec![
+            translated("guide", None, None, BOOK),
+            on_shelf("es", translated("guia", Some("es"), Some("guide"), BOOK)),
+        ],
+        &headings,
+    );
+    assert!(!report.has_errors(), "{:?}", report.items());
+    let found = c.alternates(id_of(&c, "shelves/es/volumes/guia/setup.md"));
+    assert_eq!(
+        urls_of(&found),
+        [("en", "/guide/setup/"), ("es", "/es/guia/setup/")]
+    );
+}
+
+fn manifest_errors(volumes: Vec<VolumeSource>) -> Vec<String> {
+    let (_, report) = build(volumes);
+    report
+        .items()
+        .iter()
+        .filter(|d| d.code == Code::MANIFEST)
+        .map(|d| format!("{} @ {}", d.message, d.path.as_deref().unwrap_or("")))
+        .collect()
+}
+
+#[test]
+fn a_translation_of_a_missing_volume_is_an_error() {
+    let errors = manifest_errors(vec![translated("guia", Some("es"), Some("nada"), BOOK)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("names no volume"), "{errors:?}");
+    assert!(
+        errors[0].ends_with("@ volumes/guia/volume.toml"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn a_volume_cannot_translate_itself() {
+    let errors = manifest_errors(vec![translated("guide", Some("es"), Some("guide"), BOOK)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("itself"), "{errors:?}");
+}
+
+#[test]
+fn translations_must_point_at_the_original_not_at_each_other() {
+    let errors = manifest_errors(vec![
+        translated("guide", None, None, BOOK),
+        translated("guia", Some("es"), Some("guide"), BOOK),
+        translated("guide-fr", Some("fr"), Some("guia"), BOOK),
+    ]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("is itself a translation"), "{errors:?}");
+}
+
+#[test]
+fn two_volumes_of_one_book_in_one_language_are_an_error() {
+    let errors = manifest_errors(vec![
+        translated("guide", None, None, BOOK),
+        translated("guide-copy", Some("EN"), Some("guide"), BOOK),
+    ]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("same language"), "{errors:?}");
+}
+
+#[test]
+fn a_language_that_is_not_a_tag_is_an_error() {
+    for bad in ["", "e", "english language", "es_MX", "es-", "-es", "123"] {
+        let errors = manifest_errors(vec![translated("guide", Some(bad), None, BOOK)]);
+        assert_eq!(errors.len(), 1, "{bad:?}: {errors:?}");
+        assert!(
+            errors[0].contains("not a language tag"),
+            "{bad:?}: {errors:?}"
+        );
+    }
+    for good in ["en", "es", "pt-BR", "zh-Hant-TW", "sr-Latn"] {
+        assert!(
+            manifest_errors(vec![translated("guide", Some(good), None, BOOK)]).is_empty(),
+            "{good}"
+        );
+    }
+}

@@ -17,7 +17,7 @@ use anaquel_emit::{
     Ledger, OutputFile, WriteStats, headers_file, llms_txt, lost_urls, redirects_file, sitemap,
     write_ledger, write_outputs,
 };
-use anaquel_render::{Renderer, SiteView};
+use anaquel_render::{Renderer, SiteView, ui_for};
 use anaquel_search::{ExternalPagefind, SearchIndexer};
 use anaquel_theme::Theme;
 use rayon::prelude::*;
@@ -234,14 +234,19 @@ fn render_site(
         .collect();
     outputs.extend(pages?);
 
-    let home = views::blank_page("home", &site.title, "/");
+    let home = views::blank_page("home", &site.title, "/", &site.language);
     outputs.push(OutputFile {
         path: "index.html".to_owned(),
         bytes: renderer
             .render("home.html", &site, &home, &asset_urls)?
             .into_bytes(),
     });
-    let missing = views::blank_page("not_found", "Page not found", "/404.html");
+    let missing = views::blank_page(
+        "not_found",
+        ui_for(&site.language).not_found,
+        "/404.html",
+        &site.language,
+    );
     outputs.push(OutputFile {
         path: "404.html".to_owned(),
         bytes: renderer

@@ -89,7 +89,8 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Directivas: aviso, detalles, pestañas, tarjetas, pasos, columnas, incrustado | Disponible (0.1) | Una página cada una en [`examples/directives`](examples/directives); el conjunto es cerrado |
 | Resaltado de sintaxis del código con valla, en ambos esquemas | Disponible (0.1) | Solo clases, sin estilos en línea; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java y más; los demás quedan en texto plano (aún sin TOML, TypeScript ni PowerShell) |
 | Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
-| Estantes, varios idiomas, `relocate`, `upgrade`, documentación versionada | Prevista (M2) | Nada de esta fila está en el código hoy |
+| Estantes, `llms.txt`, tomos traducidos con enlaces `hreflang`, textos del tema en inglés y español | En la versión de desarrollo, aún no en una versión publicada | Mira [`examples/multi-shelf`](examples/multi-shelf) y [`examples/bilingual`](examples/bilingual); los demás idiomas del tema se leen en inglés |
+| `relocate`, `upgrade`, documentación versionada | Prevista (M2) | Nada de esta fila está en el código hoy |
 
 ## Para quién es
 
@@ -159,7 +160,7 @@ La última fila es la que cuenta hoy.
 
 - Necesitas algo que funcione hoy en producción: Anaquel está en la 0.1 y no tiene manual.
 - Dependes de un ecosistema grande de temas, complementos e importadores: no existe, y una sola persona mantiene el proyecto.
-- Necesitas documentación versionada, varios idiomas o una referencia OpenAPI: están previstas, no construidas.
+- Necesitas documentación versionada o una referencia OpenAPI: están previstas, no construidas. Varios idiomas está solo en la versión de desarrollo.
 - Quieres búsqueda sin instalar otro programa: Pagefind es externo.
 - Necesitas una interfaz en un idioma distinto del inglés: los textos del tema están solo en inglés por ahora.
 

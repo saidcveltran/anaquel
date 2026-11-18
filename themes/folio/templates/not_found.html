@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block shell %}
 <main id="content" class="content home">
-  <h1>Page not found</h1>
-  <p class="lead">There is nothing at this address. It may have been moved or removed.</p>
-  <p><a href="/">Go to the start of {{ site.title }}</a></p>
+  <h1>{{ ui.not_found }}</h1>
+  <p class="lead">{{ ui.not_found_text }}</p>
+  <p><a href="/">{{ ui.go_to_start }} {{ site.title }}</a></p>
 </main>
 {% endblock %}

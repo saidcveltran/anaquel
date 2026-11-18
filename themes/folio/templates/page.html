@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {% import "partials/nav.html" as nav %}
 {% block shell %}
-<nav class="sidebar" id="sidebar" aria-label="Volume">
+<nav class="sidebar" id="sidebar" aria-label="{{ ui.volume }}">
   <p class="sidebar-title"><a href="{{ page.volume.url }}">{{ page.volume.title }}</a></p>
   {{ nav.tree(page.nav) }}
+  {% if page.alternates %}
+  <p class="sidebar-languages" id="languages">{{ ui.languages }}</p>
+  <ul class="languages" aria-labelledby="languages">
+    {% for alt in page.alternates %}<li><a href="{{ alt.url }}" hreflang="{{ alt.language }}" lang="{{ alt.language }}"{% if alt.current %} aria-current="true"{% endif %}>{{ alt.language }}</a></li>{% endfor %}
+  </ul>
+  {% endif %}
 </nav>
 <main id="content" class="content">
   {% if page.breadcrumbs %}
-  <ol class="crumbs" aria-label="Breadcrumb">
+  <ol class="crumbs" aria-label="{{ ui.breadcrumb }}">
     {% for crumb in page.breadcrumbs %}<li><a href="{{ crumb.url }}">{{ crumb.title }}</a></li>{% endfor %}
   </ol>
   {% endif %}
@@ -23,14 +29,14 @@
     </ul>
     {% endif %}
   </article>
-  <nav class="pager" aria-label="Pages">
-    {% if page.prev %}<a class="prev" href="{{ page.prev.url }}"><small>Previous</small><span>{{ page.prev.title }}</span></a>{% else %}<span></span>{% endif %}
-    {% if page.next %}<a class="next" href="{{ page.next.url }}"><small>Next</small><span>{{ page.next.title }}</span></a>{% endif %}
+  <nav class="pager" aria-label="{{ ui.pages }}">
+    {% if page.prev %}<a class="prev" href="{{ page.prev.url }}"><small>{{ ui.previous }}</small><span>{{ page.prev.title }}</span></a>{% else %}<span></span>{% endif %}
+    {% if page.next %}<a class="next" href="{{ page.next.url }}"><small>{{ ui.next }}</small><span>{{ page.next.title }}</span></a>{% endif %}
   </nav>
 </main>
 {% if page.toc %}
-<aside class="toc" aria-label="On this page">
-  <p>On this page</p>
+<aside class="toc" aria-label="{{ ui.on_this_page }}">
+  <p>{{ ui.on_this_page }}</p>
   <ul>
     {% for item in page.toc %}<li class="level-{{ item.level }}"><a href="#{{ item.anchor }}">{{ item.text }}</a></li>{% endfor %}
   </ul>

@@ -254,7 +254,7 @@
     var placeholder = document.createElement("button");
     placeholder.type = "button";
     placeholder.className = "icon-button";
-    placeholder.setAttribute("aria-label", "Search");
+    placeholder.setAttribute("aria-label", search.dataset.label || "Search");
     placeholder.innerHTML =
       '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     placeholder.addEventListener("click", function () {
