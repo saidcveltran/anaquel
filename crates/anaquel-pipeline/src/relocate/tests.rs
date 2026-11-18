@@ -5,9 +5,11 @@ use std::path::Path;
 
 use anaquel_diagnostics::Code;
 
-use super::disk::{Disk, RealDisk};
+use super::destination::{file_name_problem, windows_device};
+use super::disk::{Change, Disk, RealDisk, apply};
+use super::plan::{Address, check_addresses, lost_addresses};
 use super::text::{encode, read_destination, relative, set_aliases};
-use super::{Address, RelocateOptions, RelocateOutcome, check_addresses, relocate, relocate_on};
+use super::{RelocateOptions, RelocateOutcome, relocate, relocate_on};
 use crate::tests::Scratch;
 use crate::{build, check};
 
@@ -37,6 +39,10 @@ fn fixture(name: &str) -> Scratch {
         "# API\n\nSee [setup](../setup.md) and [ref][r].\n\n[r]: _index.md \"Title\"\n",
     );
     s.put("volumes/guide/ref/pic.txt", "pic");
+    s.put(
+        "volumes/guide/slugged.md",
+        "---\nslug: slugged-stable\n---\n# Slugged\n",
+    );
     s.put("volumes/other/volume.toml", "title = \"Other\"\n");
     s.put(
         "volumes/other/_index.md",
@@ -214,11 +220,7 @@ fn reference_definitions_and_titles_are_rewritten() {
     );
     assert!(out.applied, "{:?}", out.report.items());
     let links = read(&t, "volumes/guide/links.md");
-    assert!(
-        links.contains("[a]: ../api.md#api \"Title\"")
-            || links.contains("[a]: api.md#api \"Title\""),
-        "{links}"
-    );
+    assert!(links.contains("[a]: api.md#api \"Title\""), "{links}");
     assert!(links.contains("[b]: <api.md>"), "{links}");
     assert!(links.contains("[three](<api.md> \"t\")"), "{links}");
     assert_clean(&t);
@@ -348,17 +350,159 @@ fn a_draft_is_renamed_without_a_redirect() {
 }
 
 #[test]
-fn only_the_case_of_a_name_can_change() {
+fn a_redirect_that_differs_only_by_case_is_refused() {
     let s = fixture("reloc-case");
+    let before = snapshot(&s.0);
     let out = go(
         &s,
         "volumes/guide/setup.md",
         "volumes/guide/Setup.md",
         false,
     );
+    assert!(!out.applied);
+    assert!(
+        codes(&out).contains(&Code::RELOCATE_DESTINATION),
+        "{:?}",
+        out.report.items()
+    );
+    assert_eq!(snapshot(&s.0), before);
+
+    let out = go(
+        &s,
+        "volumes/guide/slugged.md",
+        "volumes/guide/Slugged.md",
+        false,
+    );
     assert!(out.applied, "{:?}", out.report.items());
-    assert!(read(&s, "volumes/guide/Setup.md").contains("  - /guide/setup/\n"));
+    assert!(!read(&s, "volumes/guide/Slugged.md").contains("aliases"));
     assert_clean(&s);
+}
+
+#[test]
+fn a_destination_name_is_normalised_before_it_is_used() {
+    let s = fixture("reloc-nfc");
+    let out = go(
+        &s,
+        "volumes/guide/setup.md",
+        "volumes/guide/cafe\u{301}.md",
+        false,
+    );
+    assert!(out.applied, "{:?}", out.report.items());
+    let page = read(&s, "volumes/guide/caf\u{e9}.md");
+    assert!(page.contains("  - /guide/setup/\n"), "{page}");
+    assert_clean(&s);
+}
+
+#[test]
+fn a_link_that_stays_the_same_is_not_rewritten() {
+    let s = fixture("reloc-same-link");
+    let out = go(
+        &s,
+        "volumes/guide/ref/api.md",
+        "volumes/guide/other/api.md",
+        false,
+    );
+    assert!(out.applied, "{:?}", out.report.items());
+    let page = read(&s, "volumes/guide/other/api.md");
+    assert!(page.contains("[setup](../setup.md)"), "{page}");
+    assert!(page.contains("[r]: ../ref/_index.md \"Title\""), "{page}");
+    assert!(
+        out.plan.iter().any(|l| l.contains("rewrite 1 link(s)")),
+        "{:?}",
+        out.plan
+    );
+    assert_clean(&s);
+}
+
+#[test]
+fn chained_folder_moves_and_statics_do_not_overwrite_each_other() {
+    let s = fixture("reloc-chain-statics");
+    s.put("volumes/guide/a/x/_index.md", "# X\n");
+    s.put("volumes/guide/a/x/z.png", "one");
+    s.put("volumes/guide/a/x/x/z.png", "two");
+    let out = go(
+        &s,
+        "volumes/guide/a/x/_index.md",
+        "volumes/guide/a/_index.md",
+        false,
+    );
+    assert!(out.applied, "{:?}", out.report.items());
+    assert_eq!(read(&s, "volumes/guide/a/z.png"), "one");
+    assert_eq!(read(&s, "volumes/guide/a/x/z.png"), "two");
+}
+
+#[test]
+fn a_swap_of_two_pages_through_a_folder_move_is_refused() {
+    let s = Scratch::new("reloc-chain-pages");
+    s.put(
+        "anaquel.toml",
+        "schema = 1\nengine = \"0.1\"\ntitle = \"Chain\"\n",
+    );
+    s.put("volumes/g/volume.toml", "title = \"G\"\n");
+    s.put("volumes/g/_index.md", "# G\n");
+    s.put("volumes/g/a/b/_index.md", "# B\n");
+    s.put("volumes/g/a/b/b/m.md", "# M\n");
+    s.put("volumes/g/a/b/b/b/m.md", "# M2\n");
+    let before = snapshot(&s.0);
+    let out = go(
+        &s,
+        "volumes/g/a/b/_index.md",
+        "volumes/g/a/_index.md",
+        false,
+    );
+    assert!(!out.applied);
+    assert!(
+        codes(&out).contains(&Code::RELOCATE_CHAIN),
+        "{:?}",
+        out.report.items()
+    );
+    assert_eq!(snapshot(&s.0), before);
+}
+
+#[test]
+fn mixed_line_endings_stop_the_move() {
+    let s = fixture("reloc-mixed");
+    fs::write(
+        s.0.join("volumes/guide/setup.md"),
+        "# Setup\r\n\r\n## Install\n\nBack to [guide](_index.md).\r\n",
+    )
+    .unwrap();
+    let before = snapshot(&s.0);
+    let out = go(
+        &s,
+        "volumes/guide/setup.md",
+        "volumes/guide/install.md",
+        false,
+    );
+    assert!(
+        codes(&out).contains(&Code::RELOCATE_REWRITE),
+        "{:?}",
+        out.report.items()
+    );
+    assert_eq!(snapshot(&s.0), before);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_destination_behind_a_symbolic_link_is_refused() {
+    let s = fixture("reloc-symlink");
+    let outside = Scratch::new("reloc-symlink-outside");
+    std::os::unix::fs::symlink(&outside.0, s.0.join("volumes/guide/link")).unwrap();
+    let before = snapshot(&s.0);
+    let out = go(
+        &s,
+        "volumes/guide/setup.md",
+        "volumes/guide/link/setup.md",
+        false,
+    );
+    assert!(!out.applied);
+    assert!(
+        codes(&out).contains(&Code::RELOCATE_DESTINATION),
+        "{:?}",
+        out.report.items()
+    );
+    assert_eq!(snapshot(&s.0), before);
+    assert_eq!(fs::read_dir(&outside.0).unwrap().count(), 0);
 }
 
 #[test]
@@ -393,6 +537,7 @@ fn line_endings_and_a_byte_order_mark_survive() {
 )]
 fn every_refusal_leaves_the_tree_as_it_was() {
     let long = format!("volumes/guide/{}.md", "a".repeat(240));
+    let long_name = format!("volumes/guide/{}.md", "b".repeat(200));
     let cases: Vec<(&str, &str, Code)> = vec![
         (
             "volumes/guide/nope.md",
@@ -500,6 +645,61 @@ fn every_refusal_leaves_the_tree_as_it_was() {
             "volumes/other/home.md",
             Code::MANIFEST,
         ),
+        (
+            "volumes/guide/setup.md",
+            "volumes/guide/.attic/a.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/setup.md",
+            "volumes/guide/.hidden.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/slugged.md",
+            "volumes/guide/a%b.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/slugged.md",
+            "volumes/guide/a:b.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/slugged.md",
+            "volumes/guide/a<b>.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/slugged.md",
+            "volumes/guide/a?b.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/ref/_index.md",
+            "volumes/guide/.hid/_index.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/setup.md",
+            "volumes/guide/dir /setup.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/ref/_index.md",
+            "volumes/guide/REF/_index.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/setup.md",
+            "volumes/guide/REF/setup.md",
+            Code::RELOCATE_DESTINATION,
+        ),
+        (
+            "volumes/guide/setup.md",
+            long_name.as_str(),
+            Code::RELOCATE_DESTINATION,
+        ),
     ];
     for (from, to, expected) in cases {
         let s = fixture("reloc-refusals");
@@ -575,6 +775,24 @@ fn text_that_cannot_be_rewritten_stops_the_move() {
     );
     assert_eq!(snapshot(&s.0), before);
 
+    for (name, front) in [
+        ("flow", "aliases: [/guide/old-flow/]  # note"),
+        ("item", "aliases:\n  - /guide/old-item/ # why"),
+    ] {
+        let from = format!("volumes/guide/{name}.md");
+        s.put(&from, &format!("---\n{front}\n---\n# Page\n"));
+        let before = snapshot(&s.0);
+        let out = go(&s, &from, &format!("volumes/guide/{name}-new.md"), false);
+        assert!(
+            codes(&out).contains(&Code::RELOCATE_REWRITE),
+            "{name}: {:?}",
+            out.report.items()
+        );
+        assert!(out.report.items().iter().all(|d| d.help.is_some()));
+        assert_eq!(snapshot(&s.0), before, "{name}");
+        fs::remove_file(s.0.join(&from)).unwrap();
+    }
+
     s.put(
         "volumes/guide/cards.md",
         "# Cards\n\n::::cards cols=2\n:::card title=\"Setup\" href=\"setup.md\"\ntext\n:::\n::::\n",
@@ -623,14 +841,14 @@ fn a_swap_or_chain_of_addresses_is_refused() {
 
 struct Failing {
     inner: RealDisk,
-    fail_at: usize,
+    fail_at: Vec<usize>,
     count: usize,
 }
 
 impl Failing {
     fn tick(&mut self) -> io::Result<()> {
         self.count += 1;
-        if self.count == self.fail_at {
+        if self.fail_at.contains(&self.count) {
             Err(io::Error::other("injected"))
         } else {
             Ok(())
@@ -641,6 +859,10 @@ impl Failing {
 impl Disk for Failing {
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         self.inner.read(path)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        self.inner.exists(path)
     }
 
     fn write(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
@@ -668,44 +890,147 @@ impl Disk for Failing {
     }
 }
 
+fn interrupted(
+    name: &str,
+    from: &str,
+    to: &str,
+    fail_at: Vec<usize>,
+) -> (Scratch, RelocateOutcome, BTreeMap<String, Option<Vec<u8>>>) {
+    let s = fixture(name);
+    s.put(
+        "volumes/guide/ref/deep/note.md",
+        "# Note\n\nSee [api](../api.md).\n",
+    );
+    let before = snapshot(&s.0);
+    let mut disk = Failing {
+        inner: RealDisk,
+        fail_at,
+        count: 0,
+    };
+    let out = relocate_on(
+        &RelocateOptions {
+            root: s.0.clone(),
+            from: from.to_owned(),
+            to: to.to_owned(),
+            dry_run: false,
+        },
+        &mut disk,
+    );
+    (s, out, before)
+}
+
 #[test]
 fn an_interrupted_write_restores_every_file() {
-    let mut failures = 0;
-    for fail_at in 1..60 {
-        let s = fixture("reloc-interrupted");
-        let before = snapshot(&s.0);
-        let mut disk = Failing {
-            inner: RealDisk,
-            fail_at,
-            count: 0,
-        };
-        let out = relocate_on(
-            &RelocateOptions {
-                root: s.0.clone(),
-                from: "volumes/guide/setup.md".to_owned(),
-                to: "volumes/guide/new/setup.md".to_owned(),
-                dry_run: false,
-            },
-            &mut disk,
-        );
-        if out.applied {
-            assert_clean(&s);
-            break;
+    let moves = [
+        ("volumes/guide/setup.md", "volumes/guide/new/setup.md"),
+        ("volumes/guide/ref/_index.md", "volumes/guide/api/_index.md"),
+        (
+            "volumes/guide/ref/_index.md",
+            "volumes/other/borrowed/_index.md",
+        ),
+    ];
+    for (from, to) in moves {
+        let mut failures = 0;
+        for fail_at in 1..80 {
+            let (s, out, before) = interrupted("reloc-interrupted", from, to, vec![fail_at]);
+            if out.applied {
+                assert_clean(&s);
+                break;
+            }
+            failures += 1;
+            assert!(out.report.has_errors());
+            assert!(!out.incomplete);
+            assert_eq!(snapshot(&s.0), before, "{from}: failing at step {fail_at}");
         }
-        failures += 1;
-        assert!(out.report.has_errors());
-        assert_eq!(snapshot(&s.0), before, "failing at step {fail_at}");
+        assert!(failures >= 5, "{from}: {failures}");
     }
-    assert!(failures >= 5, "{failures}");
+}
+
+#[test]
+fn a_failure_while_putting_files_back_is_reported() {
+    let (s, out, before) = interrupted(
+        "reloc-stuck",
+        "volumes/guide/setup.md",
+        "volumes/guide/new/setup.md",
+        vec![6, 7, 8, 9, 10, 11, 12],
+    );
+    assert!(!out.applied);
+    assert!(out.incomplete, "{:?}", out.report.items());
+    assert!(out.report.items().iter().any(|d| {
+        d.help
+            .as_deref()
+            .is_some_and(|h| h.contains("could not be put back"))
+    }));
+    assert_ne!(snapshot(&s.0), before);
+}
+
+#[test]
+fn the_disk_layer_never_overwrites_a_destination() {
+    let s = fixture("reloc-no-overwrite");
+    let before = snapshot(&s.0);
+    let changes = vec![Change::Move {
+        from: s.0.join("volumes/guide/setup.md"),
+        to: s.0.join("volumes/guide/terms.md"),
+        text: None,
+    }];
+    let failure = apply(&mut RealDisk, &changes, &[]).err().unwrap();
+    assert!(failure.restored);
+    assert!(
+        failure.message.contains("already exists"),
+        "{}",
+        failure.message
+    );
+    assert_eq!(snapshot(&s.0), before);
+
+    let changes = vec![Change::Move {
+        from: s.0.join("volumes/guide/setup.md"),
+        to: s.0.join("volumes/guide/terms.md"),
+        text: Some("# changed\n".to_owned()),
+    }];
+    let failure = apply(&mut RealDisk, &changes, &[]).err().unwrap();
+    assert!(failure.restored);
+    assert_eq!(snapshot(&s.0), before);
+}
+
+#[test]
+fn an_address_that_would_vanish_is_caught() {
+    let s = fixture("reloc-lost-before");
+    let t = fixture("reloc-lost-after");
+    fs::remove_file(t.0.join("volumes/guide/setup.md")).unwrap();
+    t.put("volumes/guide/_index.md", "# Guide\n\nSee [[cache]].\n");
+    let catalog = |root: &Path| {
+        let mut report = anaquel_diagnostics::Report::new();
+        let ingested = crate::ingest::ingest(root, crate::ENGINE_VERSION, &mut report).unwrap();
+        crate::analyse_sources(ingested, &mut report).catalog
+    };
+    let lost = lost_addresses(&catalog(&s.0), &catalog(&t.0));
+    assert_eq!(lost, vec!["/guide/setup/".to_owned()]);
+    assert_eq!(
+        lost_addresses(&catalog(&s.0), &catalog(&s.0)),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn file_names_are_checked_for_every_system() {
+    for bad in [
+        ".hidden", "a%b", "a:b", "a<b", "a>b", "a|b", "a?b", "a*b", "a\"b", "a#b", "trail ",
+        "dot.", "tab\t",
+    ] {
+        assert!(file_name_problem(bad).is_some(), "{bad:?}");
+    }
+    for fine in ["setup.md", "café.md", "a b.md", "a-b_c.md", "v1.2.md"] {
+        assert_eq!(file_name_problem(fine), None, "{fine:?}");
+    }
 }
 
 #[test]
 fn reserved_and_plain_names_are_told_apart() {
     for bad in ["con", "CON", "nul.txt", "Aux.md", "com1", "LPT9.md", "prn "] {
-        assert!(super::windows_device(bad), "{bad}");
+        assert!(windows_device(bad), "{bad}");
     }
     for fine in ["console", "setup", "com10", "com", "lpt", "a.con", "comma"] {
-        assert!(!super::windows_device(fine), "{fine}");
+        assert!(!windows_device(fine), "{fine}");
     }
 }
 

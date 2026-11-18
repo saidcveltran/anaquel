@@ -1,6 +1,6 @@
 # 0002: `relocate` moves a page and leaves a redirect
 
-Status: proposed (2026-11-18)
+Status: accepted (2026-11-18); implemented in `anaquel relocate`
 
 ## Context
 
@@ -62,7 +62,11 @@ Special cases:
 | The moved page uses a `[[term]]` or a relative link its new volume does not resolve | the final build reports `AQ0304` or `AQ0302`; nothing is written |
 | `<to>` is a Windows device name (`con`, `nul`, `com1`...), with or without extension | `AQ0902` on every system, so a library moved on Linux still opens on Windows |
 | `<to>` and another file are the same after case folding | `AQ0902`; a rename that only changes case goes through a temporary name |
-| Full path longer than 240 characters | `AQ0902` |
+| The destination path, made absolute and with the temporary name, is longer than 259 UTF-16 units, or a segment is longer than 255 bytes with the temporary name | `AQ0902` |
+| A destination segment that starts with `.`, ends with a space or a dot, or holds `< > : " \| ? * \ # %` | `AQ0902`, for every segment and for `slug` pages and files too |
+| A destination folder that differs from an existing folder only by letter case | `AQ0902`; a case-insensitive disk cannot tell them apart |
+| A destination that passes through a symbolic link | `AQ0902` |
+| The address changes only by letter case | `AQ0902` |
 | `<to>` is already a page, or an alias owned by another page | `AQ0903`, naming the owner |
 | Swap or chain inside one command | `AQ0905` |
 | A link to the moved page that the rewriter cannot place | `AQ0904`, nothing written |
@@ -87,10 +91,21 @@ found by the final build keeps `AQ0301`.
 
 ## Limits
 
-- Only pages move. A static file such as an image is moved by hand; its lost address is not
-  tracked by the ledger today.
-- Links written as raw HTML are not rewritten and stop the move (`AQ0904`).
-- Case-folding and the 240 limit are proposed rules, not measured on Windows.
+- A single move is one page. A folder moves only through its `_index.md`, and then its static
+  files move with it; their old addresses get no redirect and the ledger does not track them.
+  The plan says how many files change address without a redirect.
+- Raw HTML in a page is already an error (`AQ0402`), so it never reaches the rewriter. A link in
+  the `href` or `image` of a `:::` block that points at a moving page, or sits in a page that
+  moves, stops the move (`AQ0904`): a page with cards of relative `href` does not move between
+  folders. An `aliases` list with a comment, or a file that mixes `\r\n` and `\n`, stops it too.
+- The previous build's ledger is not read. Instead the result is compared in memory: every
+  published address and redirect of the library before the move must still exist after it,
+  or nothing is written.
+- A crash in the middle of a write (power loss, a killed process) is not undone: there is no
+  journal. A failed write is undone; a crash can leave files named `.NAME.anaquel-tmp` next to
+  the old and the new places.
+- The Windows rules (reserved names, forbidden characters, the 259-unit path) and the
+  case-insensitive folder rule are checked on every system and tested on Linux only; they were not
+  run on Windows or macOS.
 - That terms and links resolve per volume is read from the error texts (`no term ... in this
-  volume`) and from `examples/multi-shelf`; a move between volumes was not run.
-- Nothing here is implemented; the README row for `relocate` stays "Planned (M2)".
+  volume`) and from `examples/multi-shelf`; moves between volumes and shelves are tested.

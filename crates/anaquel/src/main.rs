@@ -144,6 +144,7 @@ fn move_page(root: PathBuf, from: String, to: String, dry_run: bool) -> ExitCode
         to,
         dry_run,
     });
+    let (applied, incomplete) = (outcome.applied, outcome.incomplete);
     print_report(&Outcome {
         report: outcome.report,
         pages: 0,
@@ -153,7 +154,7 @@ fn move_page(root: PathBuf, from: String, to: String, dry_run: bool) -> ExitCode
     for line in &outcome.plan {
         say(line);
     }
-    if outcome.applied {
+    if applied {
         say("moved; run `anaquel check --strict` to confirm");
         ExitCode::SUCCESS
     } else if dry_run && outcome.plan.is_empty() {
@@ -161,6 +162,9 @@ fn move_page(root: PathBuf, from: String, to: String, dry_run: bool) -> ExitCode
     } else if dry_run {
         say("dry run: nothing was written");
         ExitCode::SUCCESS
+    } else if incomplete {
+        say("the move failed and some files could not be put back; see the message above");
+        ExitCode::from(EXIT_FAILED)
     } else {
         say("nothing was written");
         ExitCode::from(EXIT_PROBLEMS)

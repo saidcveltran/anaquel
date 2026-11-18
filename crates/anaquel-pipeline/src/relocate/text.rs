@@ -232,7 +232,7 @@ fn new_href(ctx: &RewriteScope<'_>, href: &str) -> Option<String> {
         out.push('#');
         out.push_str(fragment);
     }
-    Some(out)
+    (out != href).then_some(out)
 }
 
 fn new_page_dir(path: &str) -> &str {
@@ -352,17 +352,18 @@ pub(super) fn set_aliases(text: &str, aliases: &[String]) -> Result<String, Stri
             while end > k + 1 && all[end - 1].trim().is_empty() {
                 end -= 1;
             }
-            if all[k + 1..end]
-                .iter()
-                .any(|l| l.trim_start().starts_with('#'))
-            {
+            if all[k..end].iter().any(|l| l.contains('#')) {
                 return Err("the `aliases` list holds a comment, which would be lost".to_owned());
             }
             head.splice(k..end, replacement);
         }
         None => head.extend(replacement),
     }
-    Ok(format!("---\n{}{tail}", head.concat()))
+    let result = format!("---\n{}{tail}", head.concat());
+    match parse_page(&result, "") {
+        Ok(parsed) if parsed.front.aliases == aliases => Ok(result),
+        _ => Err("the front matter cannot be edited without changing its meaning".to_owned()),
+    }
 }
 
 fn is_continuation(line: &str) -> bool {
