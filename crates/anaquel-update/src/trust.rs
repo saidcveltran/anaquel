@@ -7,7 +7,9 @@ use crate::manifest::{MAX_MANIFEST_BYTES, Manifest};
 ///
 /// The program carries an active key and a reserve key so a leaked signing key can
 /// be replaced without shipping a new trust anchor. The crate embeds no keys of its
-/// own: the caller passes them in, which keeps tests independent of production keys.
+/// own for the checks themselves: [`TrustedKeys::from_base64`] takes whatever keys the
+/// caller passes, which keeps tests independent of production keys, and
+/// [`TrustedKeys::release`] supplies the real ones.
 #[derive(Debug)]
 pub struct TrustedKeys {
     keys: Vec<PublicKey>,

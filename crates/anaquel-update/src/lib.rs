@@ -21,6 +21,7 @@ mod decide;
 mod digest;
 mod error;
 mod manifest;
+mod release_keys;
 mod time;
 mod trust;
 
@@ -31,5 +32,6 @@ pub use manifest::{
     Advisory, Asset, MANIFEST_SCHEMA, MAX_ASSET_BYTES, MAX_MANIFEST_BYTES, Manifest, Release,
     Severity, Withdrawal,
 };
+pub use release_keys::{ACTIVE_RELEASE_KEY, RESERVE_RELEASE_KEY};
 pub use time::Timestamp;
 pub use trust::{TrustedKeys, verify_manifest};
