@@ -8,6 +8,18 @@ mod support {
     use std::path::{Path, PathBuf};
     use std::process::{Command, Output};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
+    /// Lets one test at a time copy the program and start it.
+    ///
+    /// On Linux a program that was copied a moment ago cannot be started while another thread's
+    /// `fork` still holds a copy of the descriptor it was written through ("Text file busy"). The
+    /// tests copy and start the program in parallel threads, so each one holds this lock from the
+    /// creation of its folder until the folder is removed.
+    pub fn serial_access() -> MutexGuard<'static, ()> {
+        static LOCK: Mutex<()> = Mutex::new(());
+        LOCK.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 
     /// The program under test.
     pub const PROGRAM: &str = env!("CARGO_BIN_EXE_anaquel");
@@ -25,11 +37,15 @@ mod support {
     }
 
     /// A folder under the system's temporary folder, removed when it goes out of scope.
-    pub struct Folder(PathBuf);
+    pub struct Folder {
+        path: PathBuf,
+        _serial: MutexGuard<'static, ()>,
+    }
 
     impl Folder {
         pub fn new(name: &str) -> Self {
             static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let serial = serial_access();
             let path = std::env::temp_dir().join(format!(
                 "anaquel-upgrade-command-{name}-{}-{}",
                 std::process::id(),
@@ -37,7 +53,10 @@ mod support {
             ));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).unwrap();
-            Self(path)
+            Self {
+                path,
+                _serial: serial,
+            }
         }
 
         /// A copy of the program in this folder, so that replacing it touches nothing real.
@@ -47,19 +66,19 @@ mod support {
             } else {
                 "anaquel"
             };
-            let copy = self.0.join(name);
+            let copy = self.path.join(name);
             fs::copy(PROGRAM, &copy).unwrap();
             copy
         }
 
         pub fn path(&self) -> &Path {
-            &self.0
+            &self.path
         }
     }
 
     impl Drop for Folder {
         fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
+            let _ = fs::remove_dir_all(&self.path);
         }
     }
 }
@@ -68,7 +87,7 @@ use std::fs;
 
 use anaquel_upgrade::probe::run_version_probe;
 use semver::Version;
-use support::{Folder, PROGRAM, run, stderr, stdout};
+use support::{Folder, PROGRAM, run, serial_access, stderr, stdout};
 
 #[test]
 fn the_help_lists_the_command_and_its_options() {
@@ -181,6 +200,8 @@ fn a_previous_program_that_does_not_run_is_not_put_back() {
 
 #[test]
 fn the_program_answers_the_check_an_upgrade_runs_on_a_new_program() {
+    // Starting a process while another test writes a program can make that program busy.
+    let _serial = serial_access();
     let own_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
     let program = std::path::Path::new(PROGRAM);
 

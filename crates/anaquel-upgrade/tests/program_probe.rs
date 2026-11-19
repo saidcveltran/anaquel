@@ -6,13 +6,29 @@ mod support {
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
+    /// Lets one test at a time write a program and start it.
+    ///
+    /// On Linux a program that was written a moment ago cannot be started while another thread's
+    /// `fork` still holds a copy of the descriptor it was written through ("Text file busy"). The
+    /// tests write programs and start them in parallel threads, so each one holds this lock from
+    /// the creation of its folder until the folder is removed.
+    fn serial_access() -> MutexGuard<'static, ()> {
+        static LOCK: Mutex<()> = Mutex::new(());
+        LOCK.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 
     /// A folder under the system's temporary folder, removed when it goes out of scope.
-    pub struct Folder(PathBuf);
+    pub struct Folder {
+        path: PathBuf,
+        _serial: MutexGuard<'static, ()>,
+    }
 
     impl Folder {
         pub fn new(name: &str) -> Self {
             static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let serial = serial_access();
             let path = std::env::temp_dir().join(format!(
                 "anaquel-probe-{name}-{}-{}",
                 std::process::id(),
@@ -20,12 +36,15 @@ mod support {
             ));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).unwrap();
-            Self(path)
+            Self {
+                path,
+                _serial: serial,
+            }
         }
 
         /// A copy of the fixture program named `file_name`, told to behave as `behaviour` says.
         pub fn program(&self, file_name: &str, behaviour: &str) -> PathBuf {
-            let program = self.0.join(file_name);
+            let program = self.path.join(file_name);
             fs::copy(env!("CARGO_BIN_EXE_probe_fixture"), &program).unwrap();
             let mut sidecar = program.clone().into_os_string();
             sidecar.push(".behaviour");
@@ -34,13 +53,13 @@ mod support {
         }
 
         pub fn path(&self) -> &Path {
-            &self.0
+            &self.path
         }
     }
 
     impl Drop for Folder {
         fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
+            let _ = fs::remove_dir_all(&self.path);
         }
     }
 
