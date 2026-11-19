@@ -1,6 +1,6 @@
 # 0003: Release signing keys and the signing tool
 
-Status: proposed (2026-11-19)
+Status: accepted and implemented in `anaquel-sign` (2026-11-19)
 
 ## Context
 
@@ -17,47 +17,61 @@ them in their own terminal; the repository receives only the public halves.
 
 ## Decision
 
-A small program in this repository, `anaquel-sign`, with two commands and no network access:
+A small program in this repository, `anaquel-sign`, with two commands and no network access. It
+is built from the repository and is not part of the release archives.
 
-- `anaquel-sign keygen --out DIR` writes `DIR/NAME.pub` and `DIR/NAME.key` for the names `active`
-  and `reserve`. It asks for the passphrase twice on the terminal (no echo, never an argument or
-  a variable) and refuses an empty one. It prints only the public key line.
-- `anaquel-sign sign --key FILE manifest.json` asks for the passphrase and writes
-  `manifest.json.minisig`.
+- `anaquel-sign keygen --name NAME --out DIR` writes `DIR/NAME.key` (private) and `DIR/NAME.pub`.
+  Run it once for `active` and once for `reserve`, with different passphrases. It asks for the
+  passphrase twice on the terminal (no echo, never an argument or a variable), refuses one shorter
+  than 12 characters, never replaces a file, and prints the key id and the public key line.
+- `anaquel-sign sign --key FILE [--comment TEXT] manifest.json` asks for the passphrase and writes
+  `manifest.json.minisig`. Before signing it checks that the manifest is one the program would
+  accept; after signing it checks the signature with the same verifier the program ships, and it
+  writes nothing if either fails. It never replaces an existing signature file.
 
-Formats follow minisign, so a signature made here is read by the independent verifier already used
-by `anaquel-update`, and any other minisign program can check it:
+Public keys and signatures follow minisign, so the independent verifier in `anaquel-update` reads
+what the tool writes, and any other minisign reader can check it:
 
 - public key: `Ed` + 8-byte key id + 32-byte key, base64;
-- signature: the pre-hashed form (`ED`, BLAKE2b-512 of the data) with the trusted comment signed.
+- signature: the pre-hashed form (`ED`, BLAKE2b-512 of the data), with the trusted comment signed.
 
-The private key file is passphrase-protected with scrypt. It is stored in the layout minisign
-documents, but compatibility of this one file with the official program is **not claimed**: it
-cannot be tested without that program, and the tests here can only prove that this tool reads its
-own files.
+The private key file is **this tool's own format**, not minisign's. An early draft of this page
+planned to copy minisign's secret key layout; that was dropped because copying it from memory could
+not be checked without the official program, and a file that looks compatible and is not is worse
+than one that says it is different. The file's first line says so. It holds the format version, the
+scrypt cost (N = 2^18, r = 8, p = 1, about 256 MiB), a random salt, the key id, the seed masked with
+a stream derived from the passphrase, and a BLAKE2b-256 checksum keyed by the same derivation. A
+wrong passphrase and a changed file give the same answer, because they cannot be told apart.
+Opening a file refuses scrypt costs outside N 2^10 to 2^22, r up to 16 and p up to 4 before doing
+any work, so a changed file cannot exhaust memory.
 
 Where the keys live: the active key on the maintainer's machine, offline except while a release is
 signed; the reserve key on separate media, never loaded on the release machine. The release
 workflow does not sign. The maintainer signs the manifest by hand after the build and uploads the
 `.minisig`; this keeps the private key out of CI at the cost of one manual step per release.
 
-## Tests this decision requires
+## Tests this decision requires, and what was checked
 
-- A signature written by `sign` verifies with `anaquel-update` (an independent reader), and fails
-  after one changed byte, with the other key, and with the legacy (non-pre-hashed) algorithm.
-- A wrong passphrase, a truncated key file, a key file with a changed byte and an empty passphrase
-  are refused with distinct errors.
-- `keygen` never writes the private key before the passphrase was confirmed twice, writes it with
-  owner-only permissions where the system supports it, and refuses to overwrite a file.
-- Key ids of the two generated keys differ.
+- A signature written by `sign` verifies with `anaquel-update`, and fails after changed data, with
+  another key and after a changed trusted comment. Done.
+- Every single changed byte of a key file makes it unusable; a wrong, empty or case-changed
+  passphrase is refused; costs outside the bounds are refused before any stretching. Done.
+- `keygen` writes nothing when the two passphrases differ, when the passphrase is short, when the
+  name could leave the folder, or when a file already exists; the file writer itself also refuses
+  to replace a file that appears after the check. Done.
+- Hand-made mutations were caught: skipping the checksum, signing the data without hashing it and
+  overwriting a file each fail a test.
+- Not done: the terminal prompt itself is not driven by a test (the same code runs against a
+  scripted source), and nothing was checked on the private key file permissions on Windows.
 
 ## Costs and limits
 
-- New dependencies: an Ed25519 signer, scrypt, a random source and BLAKE2. None is in the local
-  cache except BLAKE2, so they are fetched once and then listed in `THIRD-PARTY.md` and checked by
-  `cargo deny`.
-- The tool handles secrets, so it is built to hold them briefly: buffers are zeroed after use. It
-  cannot defend against malware on the maintainer's machine.
+- New dependencies: `ed25519-compact`, `scrypt`, `blake2`, `getrandom`, `zeroize`, `rpassword` and
+  `base64`, with what they pull in. They are used only by this tool, which is not shipped.
+- The tool holds the seed in memory that is zeroed when dropped, but the signing library keeps its
+  own copies while it signs; it cannot defend against malware on the maintainer's machine.
+- On Linux the private file is created readable by its owner only. On Windows it keeps the
+  permissions of its folder, so keep it under your own profile.
 - A leaked active key is replaced by shipping a version that trusts the reserve key as active and a
   new reserve; a leak of both needs a manual reinstall. The manifest's expiry limits how long a
   stolen key can be used to hide a withdrawal.
@@ -67,6 +81,8 @@ workflow does not sign. The maintainer signs the manifest by hand after the buil
 ## Rejected
 
 - Downloading the official minisign program: an external binary to vet and keep up to date, for a
-  job small enough to test fully here. It stays available as an independent cross-check.
+  job small enough to test fully here. It stays available as an independent cross-check of
+  signatures.
 - Signing in CI: puts the private key in a place several people and processes can read.
 - A key stored unencrypted: a stolen disk would be a stolen release channel.
+- Copying minisign's secret key layout without the official program to test against.
