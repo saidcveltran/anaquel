@@ -8,7 +8,7 @@
 
 use std::cell::Cell;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, Write};
 use std::path::{Component, Path, PathBuf};
 
 use flate2::read::GzDecoder;
@@ -16,18 +16,29 @@ use thiserror::Error;
 
 const COPY_CHUNK: usize = 64 * 1024;
 
-/// The compression of a release archive.
+/// The format of a release archive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArchiveKind {
-    /// A tar archive compressed with gzip, `.tar.gz`.
+    /// A tar archive compressed with gzip, `.tar.gz`: the Linux archives.
     TarGz,
+    /// A zip archive, `.zip`: the Windows archives. Only the deflate method is read.
+    Zip,
 }
 
 impl ArchiveKind {
     /// The kind a file name says, or `None` for a name this crate cannot read.
     #[must_use]
+    // The names are those `dist` writes, in lower case, and the manifest lists them exactly,
+    // so an exact comparison is the stricter and the intended one.
+    #[allow(clippy::case_sensitive_file_extension_comparisons)]
     pub fn of_file_name(name: &str) -> Option<Self> {
-        name.ends_with(".tar.gz").then_some(Self::TarGz)
+        if name.ends_with(".tar.gz") {
+            Some(Self::TarGz)
+        } else if name.ends_with(".zip") {
+            Some(Self::Zip)
+        } else {
+            None
+        }
     }
 }
 
@@ -99,7 +110,7 @@ pub enum ArchiveError {
 /// # Errors
 /// See [`ArchiveError`].
 pub fn extract_program(
-    archive: impl Read,
+    archive: impl Read + Seek,
     kind: ArchiveKind,
     program_name: &str,
     destination: &Path,
@@ -116,6 +127,7 @@ pub fn extract_program(
             };
             extract_from_tar(capped, program_name, destination, limits)
         }
+        ArchiveKind::Zip => extract_from_zip(archive, program_name, destination, limits),
     };
     result.map_err(|error| match error {
         // A cap hit inside the decompressor surfaces as a plain read error; say what it was.
@@ -183,6 +195,48 @@ fn extract_from_tar(
         let _ = fs::remove_file(destination);
     }
     outcome
+}
+
+/// The same job for a zip archive. A zip lists its files at the end, so the list is read first
+/// (nothing is decompressed for it) and only the one entry that is the program is read.
+fn extract_from_zip(
+    source: impl Read + Seek,
+    program_name: &str,
+    destination: &Path,
+    limits: Limits,
+) -> Result<u64, ArchiveError> {
+    let unreadable = |error: zip::result::ZipError| ArchiveError::Unreadable(error.into());
+    let mut archive = zip::ZipArchive::new(source).map_err(unreadable)?;
+
+    // What the headers declare for every file is added up and limited, the same limit that
+    // the expanded size of a `.tar.gz` has. Only the program is ever expanded.
+    let mut declared = 0_u64;
+    let mut found: Option<usize> = None;
+    for index in 0..archive.len() {
+        let entry = archive.by_index_raw(index).map_err(unreadable)?;
+        declared = declared.saturating_add(entry.size());
+        if declared > limits.archive_bytes {
+            return Err(ArchiveError::ArchiveTooLarge {
+                limit: limits.archive_bytes,
+            });
+        }
+        // A name that is not valid text cannot be the program's, whose name is ASCII.
+        let Ok(name) = entry.name().map(std::borrow::Cow::into_owned) else {
+            continue;
+        };
+        if !names_the_program(Path::new(&name), program_name) {
+            continue;
+        }
+        if !entry.is_file() || entry.is_symlink() {
+            return Err(ArchiveError::NotAPlainFile(name));
+        }
+        if found.replace(index).is_some() {
+            return Err(ArchiveError::ProgramRepeated(program_name.to_owned()));
+        }
+    }
+    let index = found.ok_or_else(|| ArchiveError::ProgramMissing(program_name.to_owned()))?;
+    let mut entry = archive.by_index(index).map_err(unreadable)?;
+    write_program(&mut entry, destination, limits.program_bytes)
 }
 
 /// Whether an archive path is the program: its name, at the top or in one folder.

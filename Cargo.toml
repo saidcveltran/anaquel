@@ -59,6 +59,9 @@ getrandom = "=0.4.3"
 rpassword = "=7.5.5"
 scrypt = { version = "=0.12.0", default-features = false }
 zeroize = "=1.9.2"
+# The newest release that is more than two weeks old (2026-11-03); the crate publishes almost
+# daily. Only the deflate method is built in: no encryption, no bzip2, lzma, zstd or xz.
+zip = { version = "=9.3.0", default-features = false, features = ["deflate-flate2"] }
 notify = "=8.2.2"
 notify-debouncer-full = "=0.7.0"
 tokio = { version = "=1.54.1", features = ["rt-multi-thread", "net"] }

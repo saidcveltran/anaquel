@@ -2,7 +2,7 @@
 
 Status: accepted as a design (2026-11-19), with the questions at the end settled by the
 maintainer. Built so far: `anaquel-update` (the trust core), the two release public keys,
-`anaquel-sign manifest` and, in `anaquel-upgrade`, the archive (`.tar.gz` only so far), swap and
+`anaquel-sign manifest` and, in `anaquel-upgrade`, the archive (`.tar.gz` and `.zip`), swap and
 state pieces. The command
 itself and the network client are not built.
 
