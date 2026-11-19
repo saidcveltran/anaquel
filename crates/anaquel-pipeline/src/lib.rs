@@ -10,7 +10,9 @@ mod views;
 
 pub use ingest::MAX_PAGE_BYTES;
 pub use preview::{PagePreview, ThemeAsset, preview_page, theme_assets};
-pub use relocate::{RelocateOptions, RelocateOutcome, relocate};
+pub use relocate::{
+    RelocateOptions, RelocateOutcome, RewriteError, is_temporary_file_name, relocate, rewrite_page,
+};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
