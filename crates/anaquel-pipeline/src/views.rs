@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anaquel_catalog::{Catalog, Entry, EntryId, EntryKind};
 use anaquel_emit::{LlmsLink, LlmsSection};
-use anaquel_render::{GroupView, LinkView, NavNode, PageView, SiteView, TocItem};
+use anaquel_render::{AlternateView, GroupView, LinkView, NavNode, PageView, SiteView, TocItem};
 
 /// What the theme may know about the whole library.
 pub(crate) fn site_view(catalog: &Catalog, search: bool) -> SiteView {
@@ -155,6 +155,16 @@ pub(crate) fn page_view(catalog: &Catalog, entry: &Entry, html: String, plain: &
         },
         title: entry.title.clone(),
         description: entry.description.clone().or_else(|| summarise(plain)),
+        language: catalog.volume_language(entry.volume).to_owned(),
+        alternates: catalog
+            .alternates(entry.id)
+            .into_iter()
+            .map(|alternate| AlternateView {
+                current: alternate.url == entry.url,
+                language: alternate.language,
+                url: alternate.url,
+            })
+            .collect(),
         url: entry.url.clone(),
         content: html,
         toc: entry
@@ -208,7 +218,7 @@ fn nav_nodes(
 }
 
 /// An empty page view for the home page and the 404 page.
-pub(crate) fn blank_page(kind: &'static str, title: &str, url: &str) -> PageView {
+pub(crate) fn blank_page(kind: &'static str, title: &str, url: &str, language: &str) -> PageView {
     let placeholder = LinkView {
         title: title.to_owned(),
         url: "/".to_owned(),
@@ -218,6 +228,8 @@ pub(crate) fn blank_page(kind: &'static str, title: &str, url: &str) -> PageView
         kind,
         title: title.to_owned(),
         description: None,
+        language: language.to_owned(),
+        alternates: Vec::new(),
         url: url.to_owned(),
         content: String::new(),
         toc: Vec::new(),

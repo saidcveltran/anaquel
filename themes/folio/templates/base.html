@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ site.language }}">
+<html lang="{{ page.language }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,8 @@
 {% elif site.description %}<meta name="description" content="{{ site.description }}">
 {% endif %}
 {% if site.base_url %}<link rel="canonical" href="{{ site.base_url }}{{ page.url }}">
-{% endif %}
+{% for alt in page.alternates %}<link rel="alternate" hreflang="{{ alt.language }}" href="{{ site.base_url }}{{ alt.url }}">
+{% endfor %}{% endif %}
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="{{ assets['brand/mark.svg'] }}" type="image/svg+xml">
 <link rel="stylesheet" href="{{ assets['styles/main.css'] }}">
@@ -16,15 +17,15 @@
 <script src="{{ assets['scripts/main.js'] }}" defer></script>
 </head>
 <body class="kind-{{ page.kind }}">
-<a class="skip" href="#content">Skip to content</a>
+<a class="skip" href="#content">{{ ui.skip }}</a>
 <header class="bar">
-  <button class="icon-button nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="sidebar">
+  <button class="icon-button nav-toggle" type="button" aria-label="{{ ui.menu }}" aria-expanded="false" aria-controls="sidebar">
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
   <a class="brand" href="/">{% include "partials/mark.html" %}<span>{{ site.title }}</span></a>
   <div class="bar-end">
-    {% if site.search %}<div class="search" id="search" data-bundle="{{ site.search_path }}"></div>{% endif %}
-    <button class="icon-button theme-toggle" type="button" aria-label="Toggle theme">
+    {% if site.search %}<div class="search" id="search" data-bundle="{{ site.search_path }}" data-label="{{ ui.search }}"></div>{% endif %}
+    <button class="icon-button theme-toggle" type="button" aria-label="{{ ui.toggle_theme }}">
       <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>

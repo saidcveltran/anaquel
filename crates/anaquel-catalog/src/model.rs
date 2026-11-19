@@ -71,6 +71,15 @@ pub struct Entry {
     pub hash: String,
 }
 
+/// The same page in another language.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Alternate {
+    /// BCP 47 tag of the volume the page belongs to.
+    pub language: String,
+    /// Public URL of the page.
+    pub url: String,
+}
+
 /// A book of the library.
 #[derive(Debug, Clone)]
 pub struct Volume {
@@ -95,6 +104,15 @@ impl Volume {
     /// First URL segments of the volume, without slashes at the ends.
     pub fn address(&self) -> String {
         volume_address(self.shelf.as_deref(), &self.slug)
+    }
+
+    /// Address of the volume all translations of this book hang from: the
+    /// one named by `translation_of`, or this volume itself.
+    pub fn translation_group(&self) -> String {
+        self.manifest
+            .translation_of
+            .clone()
+            .unwrap_or_else(|| self.address())
     }
 }
 

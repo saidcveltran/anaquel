@@ -13,6 +13,10 @@ use minijinja::value::Serde;
 use minijinja::{Environment, UndefinedBehavior, Value};
 use serde::Serialize;
 
+mod ui;
+
+pub use ui::{Ui, ui_for};
+
 /// A link with a title.
 #[derive(Debug, Clone, Serialize)]
 pub struct LinkView {
@@ -22,6 +26,17 @@ pub struct LinkView {
     pub url: String,
     /// One sentence, when there is one.
     pub description: Option<String>,
+}
+
+/// The same page in another language.
+#[derive(Debug, Clone, Serialize)]
+pub struct AlternateView {
+    /// BCP 47 tag, as written in `<html lang>`.
+    pub language: String,
+    /// Site URL of the page in that language.
+    pub url: String,
+    /// Whether this is the page being rendered.
+    pub current: bool,
 }
 
 /// One item of the sidebar tree.
@@ -91,6 +106,10 @@ pub struct PageView {
     pub title: String,
     /// Page description.
     pub description: Option<String>,
+    /// Language tag of the page, for `<html lang>` and the texts of the theme.
+    pub language: String,
+    /// The page in each language it exists in, itself included; empty when there is one.
+    pub alternates: Vec<AlternateView>,
     /// Site URL of the page.
     pub url: String,
     /// HTML of the body, produced by the engine.
@@ -113,6 +132,7 @@ pub struct PageView {
 
 #[derive(Serialize)]
 struct TemplateInput<'a> {
+    ui: Ui,
     site: &'a SiteView,
     page: &'a PageView,
     assets: &'a BTreeMap<String, String>,
@@ -158,7 +178,12 @@ impl Renderer {
             Diagnostic::error(Code::TEMPLATE, format!("template `{template}`: {e}"))
         })?;
         let html = compiled
-            .render(Value::from(Serde(TemplateInput { site, page, assets })))
+            .render(Value::from(Serde(TemplateInput {
+                ui: ui_for(&page.language),
+                site,
+                page,
+                assets,
+            })))
             .map_err(|e| {
                 Diagnostic::error(Code::TEMPLATE, format!("rendering `{template}`: {e:#}"))
             })?;
@@ -209,6 +234,8 @@ mod tests {
             kind: "page",
             title: "Setup <script>".to_owned(),
             description: None,
+            language: "en".to_owned(),
+            alternates: vec![],
             url: "/guide/setup/".to_owned(),
             content: "<p>body</p>".to_owned(),
             toc: vec![TocItem {
@@ -273,6 +300,70 @@ mod tests {
             r.render("not_found.html", &site(), &p, &assets())
                 .unwrap()
                 .contains("Page not found")
+        );
+    }
+
+    #[test]
+    fn the_texts_of_the_theme_follow_the_language_of_the_page() {
+        let r = Renderer::new(&Theme::folio().unwrap()).unwrap();
+        let mut spanish = page();
+        spanish.language = "es-MX".to_owned();
+        let html = r.render("page.html", &site(), &spanish, &assets()).unwrap();
+        assert!(html.contains("<html lang=\"es-MX\">"), "{html}");
+        assert!(html.contains("Saltar al contenido"), "{html}");
+        assert!(html.contains("<p>En esta página</p>"), "{html}");
+        assert!(!html.contains("Skip to content") && !html.contains("On this page"));
+
+        let mut french = page();
+        french.language = "fr".to_owned();
+        let html = r.render("page.html", &site(), &french, &assets()).unwrap();
+        assert!(
+            html.contains("Skip to content"),
+            "a language with no table reads English"
+        );
+    }
+
+    #[test]
+    fn alternates_become_links_and_a_switcher_that_escape_their_values() {
+        let r = Renderer::new(&Theme::folio().unwrap()).unwrap();
+        let mut translated = page();
+        translated.alternates = vec![
+            AlternateView {
+                language: "en".to_owned(),
+                url: "/guide/setup/".to_owned(),
+                current: true,
+            },
+            AlternateView {
+                language: "es\"><b>".to_owned(),
+                url: "/guia/setup/".to_owned(),
+                current: false,
+            },
+        ];
+        let html = r
+            .render("page.html", &site(), &translated, &assets())
+            .unwrap();
+        assert!(
+            html.contains(
+                "rel=\"alternate\" hreflang=\"en\" href=\"https://docs.example/guide/setup/\""
+            ),
+            "{html}"
+        );
+        assert!(html.contains("class=\"languages\""), "{html}");
+        assert!(html.contains("aria-current=\"true\""), "{html}");
+        assert!(!html.contains("<b>"), "{html}");
+
+        let mut without_base = site();
+        without_base.base_url = None;
+        let html = r
+            .render("page.html", &without_base, &translated, &assets())
+            .unwrap();
+        assert!(
+            !html.contains("hreflang=\"en\" href"),
+            "hreflang links need an absolute base: {html}"
+        );
+        assert!(
+            html.contains("class=\"languages\""),
+            "the switcher does not"
         );
     }
 
