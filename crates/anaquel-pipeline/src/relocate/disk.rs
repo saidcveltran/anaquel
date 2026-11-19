@@ -27,6 +27,8 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use super::rewrite::RewriteError;
+
 pub(super) trait Disk {
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
     fn exists(&self, path: &Path) -> bool;
@@ -109,6 +111,25 @@ enum Undo {
     Restore { path: PathBuf, bytes: Vec<u8> },
 }
 
+/// The reason inside the error of a file that no longer reads as the text the library read, so a
+/// caller can tell it from a failure of the disk.
+#[derive(Debug)]
+struct FileChanged(PathBuf);
+
+impl std::fmt::Display for FileChanged {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} changed while the move was running", self.0.display())
+    }
+}
+
+impl std::error::Error for FileChanged {}
+
+fn is_file_changed(error: &io::Error) -> bool {
+    error
+        .get_ref()
+        .is_some_and(<dyn std::error::Error + Send + Sync>::is::<FileChanged>)
+}
+
 pub(super) struct Failure {
     pub(super) message: String,
     pub(super) restored: bool,
@@ -174,6 +195,76 @@ pub(super) fn apply(
         let _ = disk.remove_dir(dir);
     }
     Ok(leftovers)
+}
+
+/// The most staged names tried for one rewrite before it gives up.
+const MAX_STAGED_SLOTS: usize = 16;
+
+/// Replaces the text of one existing file: the single step of a move that rewrites a page, with
+/// the checks a caller that is not a move needs. `expected` is the text the caller read, as the
+/// library reads it; `max_bytes` bounds what is written. Returns the bytes written.
+///
+/// A staged name that is already taken (by a file a crash left, or by a save in progress) is
+/// never written through: the next of [`MAX_STAGED_SLOTS`] names is tried instead.
+pub(super) fn replace_text(
+    disk: &mut dyn Disk,
+    path: &Path,
+    text: &str,
+    expected: &str,
+    max_bytes: usize,
+) -> Result<Vec<u8>, RewriteError> {
+    let failed = |error: &io::Error| RewriteError::Failed {
+        message: error.to_string(),
+        unrestored: Vec::new(),
+    };
+    let expected = HashMap::from([(path.to_path_buf(), expected.to_owned())]);
+    let original = read_expected(disk, path, &expected).map_err(|error| {
+        if is_file_changed(&error) {
+            RewriteError::Changed
+        } else {
+            failed(&error)
+        }
+    })?;
+    if mixed_line_endings(&original) {
+        return Err(RewriteError::MixedLineEndings);
+    }
+    let written = encode_like(&original, text);
+    if written.len() > max_bytes {
+        return Err(RewriteError::TooLarge);
+    }
+    let mut undo = Vec::new();
+    match replace_through_staged_file(disk, path, text, &original, &mut undo) {
+        Ok(()) => Ok(written),
+        Err(error) => {
+            let unrestored = roll_back(disk, undo);
+            Err(RewriteError::Failed {
+                message: error.to_string(),
+                unrestored,
+            })
+        }
+    }
+}
+
+fn replace_through_staged_file(
+    disk: &mut dyn Disk,
+    path: &Path,
+    text: &str,
+    original: &[u8],
+    undo: &mut Vec<Undo>,
+) -> io::Result<()> {
+    for slot in 0..MAX_STAGED_SLOTS {
+        match stage_with(disk, path, text, original, slot, undo) {
+            // A failed rename leaves the staged file in place, and its removal entry stays.
+            Ok(staged) => return disk.rename(&staged, path),
+            // Nothing was created, so nothing is undone and the next name is tried.
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists && undo.is_empty() => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!("every staged name beside {} is taken", path.display()),
+    ))
 }
 
 fn steps(
@@ -279,7 +370,7 @@ fn read_expected(
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("{} changed while the move was running", path.display()),
+            FileChanged(path.to_path_buf()),
         ));
     }
     Ok(bytes)

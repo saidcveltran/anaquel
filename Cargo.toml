@@ -16,6 +16,7 @@ members = [
     "crates/anaquel-upgrade",
     "crates/anaquel-pipeline",
     "crates/anaquel-preview",
+    "crates/anaquel-studio",
     "crates/anaquel-fuzzcheck",
     "crates/anaquel",
 ]
@@ -46,6 +47,7 @@ anaquel-sign = { path = "crates/anaquel-sign" }
 anaquel-upgrade = { path = "crates/anaquel-upgrade" }
 anaquel-pipeline = { path = "crates/anaquel-pipeline" }
 anaquel-preview = { path = "crates/anaquel-preview" }
+anaquel-studio = { path = "crates/anaquel-studio" }
 
 axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio"] }
 base64 = { version = "=0.22.1", default-features = false, features = ["std"] }

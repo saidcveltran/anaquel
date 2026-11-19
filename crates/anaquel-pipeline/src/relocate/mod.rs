@@ -6,6 +6,7 @@
 mod destination;
 mod disk;
 mod plan;
+mod rewrite;
 mod text;
 
 use std::collections::HashMap;
@@ -16,11 +17,21 @@ use anaquel_diagnostics::{Code, Diagnostic, Report};
 
 use crate::ingest::Ingested;
 use disk::{Disk, RealDisk};
+pub use rewrite::{RewriteError, rewrite_page};
 
 #[cfg(test)]
 mod tests;
 
 const SECTION_FILE: &str = "_index.md";
+
+/// Whether `name` is the name of a temporary file that a move or a save writes beside a page.
+///
+/// One that stays after a crash is hidden and harmless; it can be deleted once no `anaquel`
+/// program is running.
+#[must_use]
+pub fn is_temporary_file_name(name: &str) -> bool {
+    name.starts_with(disk::HELD_PREFIX) || name.starts_with(disk::STAGED_PREFIX)
+}
 
 /// What to move and how.
 #[derive(Debug, Clone)]
