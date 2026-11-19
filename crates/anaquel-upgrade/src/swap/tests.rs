@@ -291,43 +291,38 @@ fn a_read_only_folder_is_not_writable() {
 
 #[test]
 fn the_owner_of_a_program_is_told_from_where_it_is() {
+    // Forward slashes are separators on both systems, so the folder rules are checked on both.
+    // The Windows shapes are those of a Scoop app folder and of the two WinGet folders.
     for (path, expected) in [
         (
-            r"C:\Users\x\scoop\apps\anaquel\current\anaquel.exe",
+            "D:/Programs/scoop/apps/anaquel/current/anaquel.exe",
             Some(PackageManager::Scoop),
         ),
         (
-            r"C:\Users\x\Scoop\Apps\anaquel\0.2.0\anaquel.exe",
+            "D:/Programs/Scoop/Apps/anaquel/0.2.0/anaquel.exe",
             Some(PackageManager::Scoop),
         ),
         (
-            r"C:\Users\x\AppData\Local\Microsoft\WinGet\Packages\Said.Anaquel_x\anaquel.exe",
+            "D:/Local/Microsoft/WinGet/Packages/Said.Anaquel_x/anaquel.exe",
             Some(PackageManager::Winget),
         ),
         (
-            r"C:\Users\x\AppData\Local\Microsoft\WinGet\Links\anaquel.exe",
+            "D:/Local/Microsoft/WinGet/Links/anaquel.exe",
             Some(PackageManager::Winget),
         ),
-        (r"C:\Users\x\.cargo\bin\anaquel.exe", None),
-        (r"C:\tools\anaquel.exe", None),
-        (r"C:\bin\anaquel.exe", None),
-        (r"C:\Users\x\scoop\shims\anaquel.exe", None),
+        ("D:/Programs/cargo/bin/anaquel.exe", None),
+        ("D:/tools/anaquel.exe", None),
+        ("D:/bin/anaquel.exe", None),
+        ("D:/Programs/scoop/shims/anaquel.exe", None),
+        ("D:/Programs/scoop/anaquel.exe", None),
     ] {
-        // On Linux a backslash is part of a name, so these Windows paths are tested there as
-        // names that happen to have no separators; the folder rules only apply on Windows.
-        if cfg!(windows) {
-            assert_eq!(managed_by(Path::new(path)), expected, "{path}");
-        }
+        assert_eq!(managed_by(Path::new(path)), expected, "{path}");
     }
     for (path, expected) in [
         ("/usr/bin/anaquel", Some(PackageManager::System)),
         ("/bin/anaquel", Some(PackageManager::System)),
         ("/usr/local/bin/anaquel", None),
-        ("/home/x/.local/bin/anaquel", None),
-        (
-            "/home/x/scoop/apps/anaquel/anaquel",
-            Some(PackageManager::Scoop),
-        ),
+        ("/srv/tools/bin/anaquel", None),
         ("/opt/usr/bin/anaquel", None),
         ("/usr/binary/anaquel", None),
     ] {

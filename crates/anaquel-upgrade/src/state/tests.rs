@@ -19,22 +19,35 @@ fn environment(variables: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> 
     }
 }
 
+/// An absolute folder of the system that runs the test: a path is absolute on Windows only
+/// with a drive, and the platform argument of `state_dir` chooses variable names, not path
+/// rules, so the values must be absolute for the host.
+fn absolute(name: &str) -> String {
+    if cfg!(windows) {
+        format!(r"C:\{name}")
+    } else {
+        format!("/{name}")
+    }
+}
+
 #[test]
 fn on_windows_the_folder_is_under_the_local_application_data() {
-    let lookup = environment(&[("LOCALAPPDATA", r"C:\Users\x\AppData\Local")]);
+    let local = absolute("local-data");
+    let lookup = environment(&[("LOCALAPPDATA", &local)]);
     assert_eq!(
         state_dir(Platform::Windows, &lookup),
-        Some(PathBuf::from(r"C:\Users\x\AppData\Local").join("anaquel"))
+        Some(PathBuf::from(&local).join("anaquel"))
     );
 }
 
 #[test]
 fn on_windows_the_profile_is_the_fallback() {
-    let lookup = environment(&[("USERPROFILE", r"C:\Users\x")]);
+    let profile = absolute("profile");
+    let lookup = environment(&[("USERPROFILE", &profile)]);
     assert_eq!(
         state_dir(Platform::Windows, &lookup),
         Some(
-            PathBuf::from(r"C:\Users\x")
+            PathBuf::from(&profile)
                 .join("AppData")
                 .join("Local")
                 .join("anaquel")
@@ -44,10 +57,8 @@ fn on_windows_the_profile_is_the_fallback() {
 
 #[test]
 fn on_unix_the_xdg_folder_wins_over_home() {
-    // A path is absolute on Windows only with a drive, so the root is chosen per system.
-    let root = if cfg!(windows) { r"C:\" } else { "/" };
-    let state = format!("{root}state");
-    let home = format!("{root}home");
+    let state = absolute("state");
+    let home = absolute("home-folder");
     let lookup = environment(&[("XDG_STATE_HOME", &state), ("HOME", &home)]);
     assert_eq!(
         state_dir(Platform::Unix, &lookup),
@@ -67,19 +78,13 @@ fn on_unix_the_xdg_folder_wins_over_home() {
 
 #[test]
 fn a_variable_that_is_empty_or_relative_is_ignored() {
-    // Rooted paths are absolute on Unix; on Windows they also need a drive, so the tests that
-    // follow only use values that are absolute on the system that runs them.
-    let absolute_home = if cfg!(windows) {
-        r"C:\home\x"
-    } else {
-        "/home/x"
-    };
+    let absolute_home = absolute("home-folder");
     let lookup = environment(&[
         ("XDG_STATE_HOME", "relative/state"),
-        ("HOME", absolute_home),
+        ("HOME", &absolute_home),
     ]);
     let found = state_dir(Platform::Unix, &lookup).unwrap();
-    assert!(found.starts_with(absolute_home), "{found:?}");
+    assert!(found.starts_with(&absolute_home), "{found:?}");
     assert!(found.ends_with("anaquel"));
 
     let lookup = environment(&[("XDG_STATE_HOME", ""), ("HOME", "")]);
