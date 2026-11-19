@@ -90,7 +90,7 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | Syntax highlighting of fenced code, in both colour schemes | Available (0.1) | Classes only, no inline styles; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java and more; others stay plain (no TOML, TypeScript or PowerShell yet) |
 | Fuzzing of the parsers | Available (0.1) | [`fuzz/`](fuzz): libFuzzer targets run for 10 minutes in CI on Linux only; on every system a smoke test replays the corpus; see [`fuzz/README.md`](fuzz/README.md) |
 | Shelves, `llms.txt`, translated volumes with `hreflang` links, theme texts in English and Spanish | In the development version, not in a release yet | See [`examples/multi-shelf`](examples/multi-shelf) and [`examples/bilingual`](examples/bilingual); other theme languages read English |
-| Signed release manifest check (library `anaquel-update`) | In the development version, not wired to a command | Verifies a minisign signature, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates; no network, no keys embedded yet |
+| Signed release manifest check (library `anaquel-update`) | In the development version, not wired to a command | Verifies a minisign signature, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates; no network, no keys embedded yet; the maintainer's tool `anaquel-sign` makes the keys and signs the manifest |
 | `relocate`, `upgrade`, versioned docs | Planned (M2) | The `upgrade` command that downloads and replaces the program is not written; `relocate` is under review |
 
 ## Who it is for
@@ -182,6 +182,7 @@ The build is a pipeline: ingest, catalog, compose, render, emit, index. Each sta
 | `anaquel-search` | The port to Pagefind |
 | `anaquel-pipeline` | The stages in order |
 | `anaquel-update` | The trust core of `upgrade`: signature, release choice, download digest (no network) |
+| `anaquel-sign` | The maintainer's tool that makes release signing keys and signs the manifest (not shipped) |
 | `anaquel-preview` | The preview server |
 
 ## Development and tests

@@ -90,7 +90,7 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Resaltado de sintaxis del código con valla, en ambos esquemas | Disponible (0.1) | Solo clases, sin estilos en línea; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java y más; los demás quedan en texto plano (aún sin TOML, TypeScript ni PowerShell) |
 | Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
 | Estantes, `llms.txt`, tomos traducidos con enlaces `hreflang`, textos del tema en inglés y español | En la versión de desarrollo, aún no en una versión publicada | Mira [`examples/multi-shelf`](examples/multi-shelf) y [`examples/bilingual`](examples/bilingual); los demás idiomas del tema se leen en inglés |
-| Comprobación del manifiesto firmado de versiones (biblioteca `anaquel-update`) | En la versión de desarrollo, sin conectar a un comando | Verifica una firma minisign y luego elige una versión y rechaza actualizaciones caducadas, repetidas, retiradas, que bajen de versión o con dirección ajena; sin red y sin claves incluidas aún |
+| Comprobación del manifiesto firmado de versiones (biblioteca `anaquel-update`) | En la versión de desarrollo, sin conectar a un comando | Verifica una firma minisign y luego elige una versión y rechaza actualizaciones caducadas, repetidas, retiradas, que bajen de versión o con dirección ajena; sin red y sin claves incluidas aún; la herramienta del mantenedor `anaquel-sign` crea las claves y firma el manifiesto |
 | `relocate`, `upgrade`, documentación versionada | Prevista (M2) | El comando `upgrade` que descarga y reemplaza el programa no está escrito; `relocate` está en revisión |
 
 ## Para quién es
@@ -182,6 +182,7 @@ El build es una cadena: ingest, catalog, compose, render, emit, index. Cada etap
 | `anaquel-search` | El puerto hacia Pagefind |
 | `anaquel-pipeline` | Las etapas en orden |
 | `anaquel-update` | El núcleo de confianza de `upgrade`: firma, elección de versión, huella de la descarga (sin red) |
+| `anaquel-sign` | La herramienta del mantenedor que crea las claves de firma y firma el manifiesto (no se distribuye) |
 | `anaquel-preview` | El servidor de vista previa |
 
 ## Desarrollo y pruebas

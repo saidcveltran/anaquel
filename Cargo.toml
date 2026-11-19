@@ -12,6 +12,7 @@ members = [
     "crates/anaquel-emit",
     "crates/anaquel-search",
     "crates/anaquel-update",
+    "crates/anaquel-sign",
     "crates/anaquel-pipeline",
     "crates/anaquel-preview",
     "crates/anaquel-fuzzcheck",
@@ -40,11 +41,19 @@ anaquel-assets = { path = "crates/anaquel-assets" }
 anaquel-emit = { path = "crates/anaquel-emit" }
 anaquel-search = { path = "crates/anaquel-search" }
 anaquel-update = { path = "crates/anaquel-update" }
+anaquel-sign = { path = "crates/anaquel-sign" }
 anaquel-pipeline = { path = "crates/anaquel-pipeline" }
 anaquel-preview = { path = "crates/anaquel-preview" }
 
 axum = { version = "=0.8.9", default-features = false, features = ["http1", "tokio"] }
+base64 = { version = "=0.22.1", default-features = false, features = ["std"] }
+blake2 = "=0.11.0"
 blake3 = "=1.8.7"
+ed25519-compact = { version = "=2.6.1", default-features = false }
+getrandom = "=0.4.3"
+rpassword = "=7.5.5"
+scrypt = { version = "=0.12.0", default-features = false }
+zeroize = "=1.9.2"
 notify = "=8.2.2"
 notify-debouncer-full = "=0.7.0"
 tokio = { version = "=1.54.1", features = ["rt-multi-thread", "net"] }
