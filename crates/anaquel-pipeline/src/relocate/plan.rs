@@ -345,6 +345,30 @@ fn describe(
             "{statics} file(s) change address and leave no redirect"
         ));
     }
+    let emptied = emptied_folders(ingested, items);
+    if !emptied.is_empty() {
+        plan.push(format!(
+            "these folders are removed if the move leaves them empty: {} (a folder that still holds a hidden file stays)",
+            emptied.join(", ")
+        ));
+    }
+}
+
+/// The folders, as library paths, that lose every file they hold to the move, deepest last.
+/// Whether one is really empty is decided on the disk when it is removed.
+fn emptied_folders(ingested: &Ingested, items: &[FileMove]) -> Vec<String> {
+    let mut folders: Vec<String> = Vec::new();
+    for item in items {
+        let volume = folder_of(&ingested.volumes[item.from_volume]);
+        let mut dir = item.from_rel.as_str();
+        while let Some((parent, _)) = dir.rsplit_once('/') {
+            folders.push(format!("{volume}/{parent}"));
+            dir = parent;
+        }
+    }
+    folders.sort();
+    folders.dedup();
+    folders
 }
 
 fn write(
@@ -356,7 +380,6 @@ fn write(
     report: &mut Report,
 ) -> Finish {
     let mut changes: Vec<Change> = Vec::new();
-    let mut emptied: Vec<PathBuf> = Vec::new();
     for item in items {
         let old_lib = lib_path(ingested, item.from_volume, &item.from_rel);
         changes.push(Change::Move {
@@ -364,15 +387,11 @@ fn write(
             to: options.root.join(&moved[&old_lib]),
             text: texts.get(&old_lib).cloned().filter(|_| item.page),
         });
-        let folder = folder_of(&ingested.volumes[item.from_volume]);
-        let mut dir = item.from_rel.as_str();
-        while let Some((parent, _)) = dir.rsplit_once('/') {
-            emptied.push(options.root.join(format!("{folder}/{parent}")));
-            dir = parent;
-        }
     }
-    emptied.sort();
-    emptied.dedup();
+    let emptied: Vec<PathBuf> = emptied_folders(ingested, items)
+        .iter()
+        .map(|folder| options.root.join(folder))
+        .collect();
     let mut rewrites: Vec<&String> = texts.keys().filter(|k| !moved.contains_key(*k)).collect();
     rewrites.sort();
     for old_lib in rewrites {
@@ -382,10 +401,28 @@ fn write(
         });
     }
     match apply(disk, &changes, &emptied) {
-        Ok(()) => Finish {
-            applied: true,
-            incomplete: false,
-        },
+        Ok(leftovers) => {
+            if !leftovers.is_empty() {
+                let names: Vec<String> = leftovers
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect();
+                report.push(
+                    Diagnostic::warning(
+                        Code::IO,
+                        format!(
+                            "the move is done, but these temporary files could not be removed: {}",
+                            names.join(", ")
+                        ),
+                    )
+                    .with_help("they hold the old text of moved pages; delete them by hand"),
+                );
+            }
+            Finish {
+                applied: true,
+                incomplete: false,
+            }
+        }
         Err(failure) => {
             report.push(
                 Diagnostic::error(
@@ -395,7 +432,7 @@ fn write(
                 .with_help(if failure.restored {
                     "every file is back as it was"
                 } else {
-                    "some files could not be put back; look for files named `.NAME.anaquel-tmp` and check the folder against your version control or a backup"
+                    "some files could not be put back; look for files named `.anaquel-held-NNNNNN` or `.anaquel-staged-NNNNNN` and check the folder against your version control or a backup"
                 }),
             );
             Finish {

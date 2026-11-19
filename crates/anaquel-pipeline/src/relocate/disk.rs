@@ -1,11 +1,32 @@
-use std::fs;
-use std::io;
+//! Applies a planned move to the disk so that either every change is made or none is.
+//!
+//! Order of the steps, with nothing visible to a reader of the library changed before the last one:
+//!
+//! 1. Every moving file is renamed to a *held* name in its own folder, and the new text of a file
+//!    whose links change is written to a *staged* name beside its destination.
+//! 2. Every held or staged file is renamed to its destination. Because every source was vacated in
+//!    step 1, files that trade places, chains of moves and a rename that changes only the case of a
+//!    name work the same way as any other move.
+//! 3. The pages outside the move whose links change are rewritten through a staged name.
+//! 4. Only when all of that succeeded are the originals of the rewritten files removed, and the
+//!    folders the move emptied.
+//!
+//! A held or staged name carries the position of its change, so no two files of one move can share
+//! one. Staged files are created with `create_new`, which refuses a name that is already taken and
+//! never writes through a link planted there. A step that fails is undone in reverse order.
+
+use std::fs::{self, OpenOptions};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 pub(super) trait Disk {
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
     fn exists(&self, path: &Path) -> bool;
+    /// Replaces the content of a file the move already owns.
     fn write(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()>;
+    /// Creates a file that must not exist yet. It fails when anything is at the name, a link
+    /// included, and it never writes through a link.
+    fn create_new(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()>;
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()>;
     fn remove_file(&mut self, path: &Path) -> io::Result<()>;
     fn create_dir(&mut self, path: &Path) -> io::Result<()>;
@@ -25,6 +46,17 @@ impl Disk for RealDisk {
 
     fn write(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
         fs::write(path, bytes)
+    }
+
+    fn create_new(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
+        let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
+        // The file is this call's own, so a failed write removes what it left.
+        if let Err(error) = file.write_all(bytes).and_then(|()| file.flush()) {
+            drop(file);
+            let _ = fs::remove_file(path);
+            return Err(error);
+        }
+        Ok(())
     }
 
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
@@ -68,89 +100,115 @@ pub(super) struct Failure {
     pub(super) restored: bool,
 }
 
+/// Name prefix of the file a moving page waits in, in the folder it leaves.
+pub(super) const HELD_PREFIX: &str = ".anaquel-held-";
+/// Name prefix of the new text of a file, in the folder it will live in.
+pub(super) const STAGED_PREFIX: &str = ".anaquel-staged-";
+/// Digits of the position a temporary name carries.
+pub(super) const POSITION_DIGITS: usize = 6;
+/// The most changes one move may hold, so that every position fits its digits.
+pub(super) const MAX_CHANGES: usize = 999_999;
+
+pub(super) fn within_limit(changes: usize) -> bool {
+    changes <= MAX_CHANGES
+}
+
+/// The characters a temporary name takes from a folder's path budget.
+pub(super) const TEMPORARY_EXTRA: usize = STAGED_PREFIX.len() + POSITION_DIGITS;
+
 pub(super) fn apply(
     disk: &mut dyn Disk,
     changes: &[Change],
     emptied: &[PathBuf],
-) -> Result<(), Failure> {
+) -> Result<Vec<PathBuf>, Failure> {
+    if !within_limit(changes.len()) {
+        return Err(Failure {
+            message: format!("a move may hold at most {MAX_CHANGES} files"),
+            restored: true,
+        });
+    }
     let mut undo: Vec<Undo> = Vec::new();
-    if let Err(error) = steps(disk, changes, &mut undo) {
+    let mut originals: Vec<PathBuf> = Vec::new();
+    if let Err(error) = steps(disk, changes, &mut undo, &mut originals) {
         let restored = roll_back(disk, undo);
         return Err(Failure {
             message: error.to_string(),
             restored,
         });
     }
+    // Past this point the move is done; what is left is tidying. A file that cannot be removed is
+    // returned so that it can be reported, and nothing is undone.
+    let mut leftovers = Vec::new();
+    for held in originals {
+        if disk.remove_file(&held).is_err() {
+            leftovers.push(held);
+        }
+    }
     let mut dirs: Vec<&PathBuf> = emptied.iter().collect();
     dirs.sort_by_key(|d| std::cmp::Reverse(d.components().count()));
     for dir in dirs {
         let _ = disk.remove_dir(dir);
     }
-    Ok(())
+    Ok(leftovers)
 }
 
-fn steps(disk: &mut dyn Disk, changes: &[Change], undo: &mut Vec<Undo>) -> io::Result<()> {
-    let mut originals: Vec<Option<Vec<u8>>> = Vec::with_capacity(changes.len());
-    for change in changes {
+fn steps(
+    disk: &mut dyn Disk,
+    changes: &[Change],
+    undo: &mut Vec<Undo>,
+    originals: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    // Step 1: vacate every source and stage every new text.
+    let mut placements: Vec<(PathBuf, &Path)> = Vec::new();
+    for (position, change) in changes.iter().enumerate() {
         let Change::Move { from, to, text } = change else {
-            originals.push(None);
             continue;
         };
         make_parents(disk, to, undo)?;
-        if let Some(text) = text {
-            let original = disk.read(from)?;
-            write_temporary(disk, &temporary_name(to), &encode_like(&original, text))?;
-            undo.push(Undo::RemoveFile(temporary_name(to)));
-            originals.push(Some(original));
-        } else {
-            let held = temporary_name(from);
-            disk.rename(from, &held)?;
-            undo.push(Undo::Rename {
-                from: held,
-                to: from.clone(),
-            });
-            originals.push(None);
+        let staged = match text {
+            Some(text) => {
+                let original = disk.read(from)?;
+                let staged = temporary_name(to, STAGED_PREFIX, position);
+                disk.create_new(&staged, &encode_like(&original, text))?;
+                undo.push(Undo::RemoveFile(staged.clone()));
+                Some(staged)
+            }
+            None => None,
+        };
+        let held = temporary_name(from, HELD_PREFIX, position);
+        refuse_taken(disk, &held)?;
+        disk.rename(from, &held)?;
+        undo.push(Undo::Rename {
+            from: held.clone(),
+            to: from.clone(),
+        });
+        match staged {
+            Some(staged) => {
+                originals.push(held);
+                placements.push((staged, to));
+            }
+            None => placements.push((held, to)),
         }
     }
-    for change in changes {
-        let Change::Move { from, to, text } = change else {
-            continue;
-        };
-        let held = if text.is_some() {
-            temporary_name(to)
-        } else {
-            temporary_name(from)
-        };
-        if disk.exists(to) {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                format!("{} already exists", to.display()),
-            ));
-        }
-        disk.rename(&held, to)?;
+    // Step 2: put every file where it goes.
+    for (source, to) in placements {
+        refuse_taken(disk, to)?;
+        disk.rename(&source, to)?;
         undo.push(Undo::Rename {
-            from: to.clone(),
-            to: held,
+            from: to.to_path_buf(),
+            to: source,
         });
     }
-    for (change, original) in changes.iter().zip(originals) {
-        if let (Change::Move { from, .. }, Some(bytes)) = (change, original) {
-            disk.remove_file(from)?;
-            undo.push(Undo::Restore {
-                path: from.clone(),
-                bytes,
-            });
-        }
-    }
-    for change in changes {
+    // Step 3: rewrite the pages that only change their links.
+    for (position, change) in changes.iter().enumerate() {
         let Change::Rewrite { path, text } = change else {
             continue;
         };
         let original = disk.read(path)?;
-        let temporary = temporary_name(path);
-        write_temporary(disk, &temporary, &encode_like(&original, text))?;
-        if let Err(error) = disk.rename(&temporary, path) {
-            let _ = disk.remove_file(&temporary);
+        let staged = temporary_name(path, STAGED_PREFIX, position);
+        disk.create_new(&staged, &encode_like(&original, text))?;
+        if let Err(error) = disk.rename(&staged, path) {
+            let _ = disk.remove_file(&staged);
             return Err(error);
         }
         undo.push(Undo::Restore {
@@ -161,10 +219,12 @@ fn steps(disk: &mut dyn Disk, changes: &[Change], undo: &mut Vec<Undo>) -> io::R
     Ok(())
 }
 
-fn write_temporary(disk: &mut dyn Disk, path: &Path, bytes: &[u8]) -> io::Result<()> {
-    if let Err(error) = disk.write(path, bytes) {
-        let _ = disk.remove_file(path);
-        return Err(error);
+fn refuse_taken(disk: &dyn Disk, path: &Path) -> io::Result<()> {
+    if disk.exists(path) {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} already exists", path.display()),
+        ));
     }
     Ok(())
 }
@@ -186,13 +246,10 @@ fn make_parents(disk: &mut dyn Disk, file: &Path, undo: &mut Vec<Undo>) -> io::R
     Ok(())
 }
 
-pub(super) const TEMPORARY_EXTRA: usize = ".".len() + ".anaquel-tmp".len();
-
-fn temporary_name(path: &Path) -> PathBuf {
-    let name = path
-        .file_name()
-        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-    path.with_file_name(format!(".{name}.anaquel-tmp"))
+/// A name for a temporary file in the folder of `path`. It does not depend on the name of `path`,
+/// so it cannot be too long, and it carries `position` so that no two files of one move share it.
+fn temporary_name(path: &Path, prefix: &str, position: usize) -> PathBuf {
+    path.with_file_name(format!("{prefix}{position:0POSITION_DIGITS$}"))
 }
 
 pub(super) fn mixed_line_endings(bytes: &[u8]) -> bool {

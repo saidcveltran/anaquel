@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use anaquel_catalog::{LogicalPath, VolumeSource};
 use anaquel_diagnostics::{Code, Report};
 use anaquel_schema::{parse_page, url_segment_problem};
 
@@ -13,15 +12,24 @@ use crate::ingest::Ingested;
 const MAX_WINDOWS_PATH_UNITS: usize = 259;
 const MAX_SEGMENT_BYTES: usize = 255;
 
+/// Whether Windows reserves the name for a device, with any extension: `CON`, `PRN`, `AUX`, `NUL`,
+/// `CONIN$`, `CONOUT$`, and `COM` and `LPT` followed by one digit or by a superscript one, two or
+/// three.
 pub(super) fn windows_device(segment: &str) -> bool {
     let stem = segment.split('.').next().unwrap_or("").trim_end();
     let lower = stem.to_lowercase();
-    matches!(lower.as_str(), "con" | "prn" | "aux" | "nul")
-        || ["com", "lpt"].iter().any(|p| {
-            lower
-                .strip_prefix(p)
-                .is_some_and(|n| n.len() == 1 && n.as_bytes()[0].is_ascii_digit())
+    matches!(
+        lower.as_str(),
+        "con" | "prn" | "aux" | "nul" | "conin$" | "conout$"
+    ) || ["com", "lpt"].iter().any(|p| {
+        lower.strip_prefix(p).is_some_and(|rest| {
+            let mut chars = rest.chars();
+            matches!(
+                (chars.next(), chars.next()),
+                (Some('0'..='9' | '¹' | '²' | '³'), None)
+            )
         })
+    })
 }
 
 pub(super) fn file_name_problem(segment: &str) -> Option<String> {
@@ -44,10 +52,11 @@ pub(super) fn check(
     report: &mut Report,
 ) -> bool {
     let volumes = &ingested.volumes;
-    let leaving: HashSet<(usize, &str)> = items
+    let leaving_lib: HashSet<String> = items
         .iter()
-        .map(|i| (i.from_volume, i.from_rel.as_str()))
+        .map(|i| format!("{}/{}", folder_of(&volumes[i.from_volume]), i.from_rel))
         .collect();
+    let mut listings: Listings = HashMap::new();
     let mut ok = true;
     for item in items {
         let target = &volumes[item.to_volume];
@@ -76,7 +85,9 @@ pub(super) fn check(
         ok &= names(item, has_slug, &new_lib, report);
         ok &= length(item, root, &new_lib, report);
         ok &= symbolic_links(root, &new_lib, report);
-        ok &= collisions(item, target, &leaving, &new_lib, report);
+        // The disk is asked, not the library's list of files: that list leaves out hidden files,
+        // empty folders and a folder named like a page.
+        ok &= on_disk(root, &new_lib, &leaving_lib, &mut listings, report);
     }
     ok
 }
@@ -122,16 +133,12 @@ fn names(item: &FileMove, has_slug: bool, new_lib: &str, report: &mut Report) ->
 
 fn length(item: &FileMove, root: &Path, new_lib: &str, report: &mut Report) -> bool {
     let mut ok = true;
-    let last = item.to_rel.split('/').count() - 1;
-    for (index, segment) in item.to_rel.split('/').enumerate() {
-        let extra = if index == last { TEMPORARY_EXTRA } else { 0 };
-        if segment.len() + extra > MAX_SEGMENT_BYTES {
+    for segment in item.to_rel.split('/') {
+        if segment.len() > MAX_SEGMENT_BYTES {
             refuse(
                 report,
                 Code::RELOCATE_DESTINATION,
-                format!(
-                    "`{segment}` is longer than {MAX_SEGMENT_BYTES} bytes once the temporary name is counted"
-                ),
+                format!("`{segment}` is longer than {MAX_SEGMENT_BYTES} bytes"),
                 new_lib,
             );
             ok = false;
@@ -176,76 +183,104 @@ fn symbolic_links(root: &Path, new_lib: &str, report: &mut Report) -> bool {
     true
 }
 
-fn collisions(
-    item: &FileMove,
-    target: &VolumeSource,
-    leaving: &HashSet<(usize, &str)>,
+/// The names found in each folder already looked at, so a move of many files lists a folder once.
+type Listings = HashMap<PathBuf, Vec<String>>;
+
+fn names_in(folder: &Path) -> Vec<String> {
+    fs::read_dir(folder)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Walks the destination down from the root of the library and compares each segment with what
+/// is really in the folder, whatever the library lists: an entry that differs only by letter case
+/// is refused, a folder in the way of a file or the other way round is refused, and so is
+/// anything, of any kind, already at the destination. A name that another file of the same move
+/// leaves is free. Nothing below a segment that does not exist can be in the way.
+fn on_disk(
+    root: &Path,
     new_lib: &str,
+    leaving: &HashSet<String>,
+    listings: &mut Listings,
     report: &mut Report,
 ) -> bool {
-    let mut ok = true;
-    let all: Vec<&str> = target
-        .pages
-        .iter()
-        .map(|p| p.path.as_str())
-        .chain(target.files.iter().map(LogicalPath::as_str))
-        .collect();
-    let mut taken: HashMap<String, &str> = HashMap::new();
-    let mut folders: HashMap<String, String> = HashMap::new();
-    for path in &all {
-        if !leaving.contains(&(item.to_volume, *path)) {
-            taken.insert(path.to_lowercase(), path);
+    let segments: Vec<&str> = new_lib.split('/').collect();
+    let mut folder = root.to_path_buf();
+    let mut parent_lib = String::new();
+    for (index, segment) in segments.iter().enumerate() {
+        let last = index + 1 == segments.len();
+        let lower = segment.to_lowercase();
+        let names = listings
+            .entry(folder.clone())
+            .or_insert_with_key(|key| names_in(key));
+        let lib_of = |name: &str| {
+            if parent_lib.is_empty() {
+                name.to_owned()
+            } else {
+                format!("{parent_lib}/{name}")
+            }
+        };
+        let same_letters: Vec<&String> = names
+            .iter()
+            .filter(|name| name.to_lowercase() == lower)
+            .collect();
+        if same_letters.is_empty() {
+            return true;
         }
-        let parts: Vec<&str> = path.split('/').collect();
-        for end in 1..parts.len() {
-            let folder = parts[..end].join("/");
-            folders.insert(folder.to_lowercase(), folder);
-        }
-    }
-    let parts: Vec<&str> = item.to_rel.split('/').collect();
-    for end in 1..=parts.len() {
-        let probe = parts[..end].join("/");
-        if end < parts.len()
-            && let Some(existing) = folders.get(&probe.to_lowercase())
-            && *existing != probe
+        // The only entry allowed to differ by case is a file this very move takes away.
+        if let Some(other) = same_letters
+            .iter()
+            .find(|name| name.as_str() != *segment && !(last && leaving.contains(&lib_of(name))))
         {
             refuse(
                 report,
                 Code::RELOCATE_DESTINATION,
                 format!(
-                    "the folder `{probe}` and `{existing}` differ only by letter case, which a case-insensitive disk cannot tell apart"
+                    "`{}` and `{}` differ only by letter case, which a case-insensitive disk cannot tell apart",
+                    lib_of(segment),
+                    lib_of(other)
                 ),
                 new_lib,
             );
-            ok = false;
-            continue;
+            return false;
         }
-        let Some(existing) = taken.get(&probe.to_lowercase()) else {
-            continue;
-        };
-        if end < parts.len() {
+        let here = lib_of(segment);
+        let exact = same_letters.iter().any(|name| name.as_str() == *segment);
+        if !exact {
+            return true;
+        }
+        let is_folder = fs::symlink_metadata(folder.join(segment)).is_ok_and(|m| m.is_dir());
+        if last && !leaving.contains(&here) {
             refuse(
                 report,
                 Code::RELOCATE_TAKEN,
-                format!("`{existing}` is a file, so it cannot also be a folder"),
+                format!(
+                    "`{here}` already exists{}",
+                    if is_folder { " as a folder" } else { "" }
+                ),
                 new_lib,
             );
-        } else if *existing == probe {
+            return false;
+        }
+        if !last && !is_folder {
+            if leaving.contains(&here) {
+                return true;
+            }
             refuse(
                 report,
                 Code::RELOCATE_TAKEN,
-                format!("`{new_lib}` already exists"),
+                format!("`{here}` is a file, so it cannot also be a folder"),
                 new_lib,
             );
-        } else {
-            refuse(
-                report,
-                Code::RELOCATE_DESTINATION,
-                format!("`{new_lib}` and `{existing}` differ only by letter case"),
-                new_lib,
-            );
+            return false;
         }
-        ok = false;
+        folder.push(segment);
+        parent_lib = here;
     }
-    ok
+    true
 }

@@ -43,6 +43,17 @@ The plan, in order:
 3. Rewrite every inline link and reference definition that resolves to the old file. A link
    that cannot be rewritten stops the command before anything is written.
 4. Write through temporary files and renames; on a failure, restore what was already moved.
+   The order is fixed. First every moving file is renamed to a held name in the folder it
+   leaves (`.anaquel-held-NNNNNN`) and the new text of a page whose links change is written to a
+   staged name beside its destination (`.anaquel-staged-NNNNNN`, created with `create_new`, so a
+   name that is taken, a planted link included, stops the move instead of being written through).
+   Then every held or staged file is renamed to its destination, and the pages outside the move
+   whose links change are rewritten the same way. Only when all of that succeeded are the
+   originals of rewritten pages removed and the emptied folders deleted. Every source is vacated
+   before any destination is filled, so files that trade places, chains of moves and a rename
+   that only changes case need no special case. `NNNNNN` is the position of the change in the
+   plan, so no two files of one move share a temporary name, and a name never depends on the
+   length of the file name.
 
 Special cases:
 
@@ -62,7 +73,9 @@ Special cases:
 | The moved page uses a `[[term]]` or a relative link its new volume does not resolve | the final build reports `AQ0304` or `AQ0302`; nothing is written |
 | `<to>` is a Windows device name (`con`, `nul`, `com1`...), with or without extension | `AQ0902` on every system, so a library moved on Linux still opens on Windows |
 | `<to>` and another file are the same after case folding | `AQ0902`; a rename that only changes case goes through a temporary name |
-| The destination path, made absolute and with the temporary name, is longer than 259 UTF-16 units, or a segment is longer than 255 bytes with the temporary name | `AQ0902` |
+| The destination path, made absolute and with the temporary name, is longer than 259 UTF-16 units, or a segment is longer than 255 bytes | `AQ0902` |
+| Anything is already at the destination, of any kind and listed by the library or not (a folder named like a page, a hidden file) | `AQ0903`; the disk is read, not only the library's list |
+| A destination folder that differs from an existing folder only by letter case, even a folder that holds only hidden files | `AQ0902` |
 | A destination segment that starts with `.`, ends with a space or a dot, or holds `< > : " \| ? * \ # %` | `AQ0902`, for every segment and for `slug` pages and files too |
 | A destination folder that differs from an existing folder only by letter case | `AQ0902`; a case-insensitive disk cannot tell them apart |
 | A destination that passes through a symbolic link | `AQ0902` |
@@ -102,10 +115,17 @@ found by the final build keeps `AQ0301`.
   published address and redirect of the library before the move must still exist after it,
   or nothing is written.
 - A crash in the middle of a write (power loss, a killed process) is not undone: there is no
-  journal. A failed write is undone; a crash can leave files named `.NAME.anaquel-tmp` next to
-  the old and the new places.
-- The Windows rules (reserved names, forbidden characters, the 259-unit path) and the
-  case-insensitive folder rule are checked on every system and tested on Linux only; they were not
-  run on Windows or macOS.
+  journal. A failed write is undone; a crash can leave files named `.anaquel-held-NNNNNN` or
+  `.anaquel-staged-NNNNNN` next to the old and the new places, and a later move
+  that needs the same name stops until the file is deleted.
+- A move that succeeded but could not remove an original it held (a program has it open on
+  Windows) says so with a warning and names the files; the move is not undone.
+- Folders the move empties are removed, a folder that still holds a hidden file stays, and the
+  plan says which folders are candidates.
+- The Windows rules (reserved names including `COM¹` to `COM³`, `CONIN$` and `CONOUT$`, forbidden
+  characters, the 259-unit path) and the case-insensitive folder rule are checked on every system
+  and tested on Linux and Windows in CI; macOS is not covered.
+- A source file whose name on disk is not in Unicode normal form C is looked for under its
+  normalised spelling, so it may be reported as not found; this is not tested.
 - That terms and links resolve per volume is read from the error texts (`no term ... in this
   volume`) and from `examples/multi-shelf`; moves between volumes and shelves are tested.
