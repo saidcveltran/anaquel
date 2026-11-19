@@ -13,6 +13,7 @@ anaquel-update.workspace = true
 flate2.workspace = true
 tar.workspace = true
 thiserror.workspace = true
+ureq.workspace = true
 zip.workspace = true
 
 [lints]

@@ -16,6 +16,14 @@ allow = [
 ]
 confidence-threshold = 0.9
 
+# The one crate under a licence that is not in the list above, named here and not admitted in
+# general: the root certificates the HTTPS client of `anaquel upgrade` trusts. The licence is a
+# permissive one for data; it asks that its notice travel with the data, so THIRD-PARTY.md lists
+# the crate as soon as the program links the client.
+[[licenses.exceptions]]
+crate = "webpki-roots"
+allow = ["CDLA-Permissive-2.0"]
+
 [advisories]
 unmaintained = "workspace"
 yanked = "deny"
