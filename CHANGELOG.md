@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Release archives: from the next release the Linux archives are `.tar.gz` (`anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for musl and ARM64), which the coming `anaquel upgrade` reads with a small pure-Rust library; the Windows archives stay `.zip`, the format winget documents. `dist plan` lists the five archives with these names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; anyone who unpacked a Linux `.tar.xz` by hand now needs `tar -xzf`; whether winget or Scoop would also accept a `.tar.gz` was not established, only that `.zip` is the format their documentation names.
+
 ### Added
 
 - `anaquel-sign manifest --dir DIR --version X.Y.Z`: writes `release-manifest.json` from the archives `dist` built (`anaquel-TARGET.tar.gz` or `.zip`), so nobody types a hash. It computes each archive's SHA-256 and size and requires the `.sha256` file beside it to agree (a swapped or damaged archive stops it), keeps the releases and advisories of `--previous` unchanged, refuses another channel, an earlier issue time or a version already listed, checks the download address is under the project's own release address (`https://github.com/saidcveltran/anaquel/releases/download/`, no `//`, `.` or `..` segment), takes the times from the clock (`--valid-days`, 60 by default and at most 365) or from `--published`, `--issued` and `--expires`, and parses the result with the program's own manifest reader before it is saved. It never replaces a file. Limits: it signs nothing (`sign` is a separate step); `--previous` is checked for shape, not for a signature; it does not mark a release withdrawn or write advisories (they are carried over, and added by editing the file); only `.tar.gz` and `.zip` archives are listed; dates beyond the year 9999 are refused.

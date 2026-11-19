@@ -48,8 +48,14 @@ runs a command that says so.
   tool and does nothing.
 - **Archives.** `dist` writes `.tar.xz` for Linux today. Reading it needs a C library for LZMA
   or a slower pure-Rust one. The release configuration is changed to `.tar.gz`, which a small
-  pure-Rust crate reads, and Windows keeps `.zip`. This changes the archive names of the next
-  release only; the installers follow the configuration.
+  pure-Rust crate reads. Windows keeps `.zip`: on 2026-11-19 the maintainer chose one `.tar.gz`
+  format for both, then went back after the documentation of winget was read: its manifest
+  documents zip archives (nested installers, since winget 1.5) and no tar archive, and Scoop's
+  page lists `.tar` and `.gz` but does not name `.tar.gz`. Neither is proof that a `.tar.gz`
+  would be refused, but the one format both document is `.zip`, and the last step of this page
+  is those two packages. So `anaquel-upgrade` reads both formats, with the `zip` library at a
+  version more than two weeks old. This changes the Linux archive names of the next release
+  only; the installers follow the configuration.
 - **Network library.** A small blocking HTTPS client with a pure-Rust TLS stack, added to the
   program (`ureq`). The release address answers with a redirect to GitHub's download hosts, so
   redirects are followed only within a short list of GitHub hosts and only over HTTPS; integrity
