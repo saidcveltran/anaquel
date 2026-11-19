@@ -12,7 +12,7 @@ use anaquel_update::{RELEASE_DOWNLOAD_PREFIX, Target, Timestamp, TrustedKeys};
 use anaquel_upgrade::RELEASE_MANIFEST_ADDRESS;
 use anaquel_upgrade::fetch::HttpFetch;
 use anaquel_upgrade::probe::run_version_probe;
-use anaquel_upgrade::procedure::{Context, Mode, Verdict, Want, roll_back, upgrade};
+use anaquel_upgrade::procedure::{Mode, UpgradeEnvironment, Verdict, Want, roll_back, upgrade};
 use anaquel_upgrade::report::describe;
 use anaquel_upgrade::state::{Platform, state_dir};
 use semver::Version;
@@ -93,7 +93,7 @@ fn upgrade_program(args: &Args, installed: &Path) -> ExitCode {
     } else {
         "anaquel"
     };
-    let context = Context {
+    let context = UpgradeEnvironment {
         fetch: &fetch,
         keys: &keys,
         manifest_address: RELEASE_MANIFEST_ADDRESS,

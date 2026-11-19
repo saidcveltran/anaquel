@@ -123,6 +123,8 @@ fn a_rollback_puts_the_previous_program_back_and_keeps_the_one_it_replaced() {
         installed.file_name().unwrap().to_string_lossy()
     ));
     fs::write(&previous, &previous_bytes).unwrap();
+    // A program renamed to `.previous` keeps its permissions; a file written anew has none to run.
+    fs::set_permissions(&previous, fs::metadata(&installed).unwrap().permissions()).unwrap();
 
     let output = run(&installed, &["upgrade", "--rollback"]);
 

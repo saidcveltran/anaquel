@@ -254,8 +254,8 @@ impl Rig {
         manifest
     }
 
-    fn context<'a>(&'a self, probe: Probe<'a>) -> Context<'a> {
-        Context {
+    fn context<'a>(&'a self, probe: Probe<'a>) -> UpgradeEnvironment<'a> {
+        UpgradeEnvironment {
             fetch: &self.network,
             keys: &self.keys,
             manifest_address: MANIFEST_ADDRESS,
@@ -540,7 +540,7 @@ fn a_folder_that_cannot_be_written_to_stops_the_upgrade_before_any_download() {
     // The installed program's folder is gone, so no file can be made in it.
     let missing = rig.scratch.path("gone/anaquel");
     rig.serve(&Doc::default(), &[Rel::new("0.2.0")]);
-    let context = Context {
+    let context = UpgradeEnvironment {
         installed: &missing,
         ..rig.context(&|_, _| Ok(()))
     };
@@ -773,7 +773,7 @@ fn a_download_address_outside_the_project_is_refused_and_never_fetched() {
 fn a_release_with_no_file_for_this_platform_is_refused() {
     let rig = Rig::new("no-platform");
     rig.serve(&Doc::default(), &[Rel::new("0.2.0")]);
-    let context = Context {
+    let context = UpgradeEnvironment {
         platform: "aarch64-unknown-linux-gnu",
         ..rig.context(&|_, _| Ok(()))
     };
@@ -928,7 +928,7 @@ fn a_new_program_that_fails_its_check_never_takes_the_place_of_the_old_one() {
 fn without_a_state_folder_the_upgrade_works_and_says_it_cannot_tell_a_replay() {
     let rig = Rig::new("no-state");
     rig.serve(&Doc::default(), &[Rel::new("0.2.0")]);
-    let context = Context {
+    let context = UpgradeEnvironment {
         state_dir: None,
         ..rig.context(&|_, _| Ok(()))
     };

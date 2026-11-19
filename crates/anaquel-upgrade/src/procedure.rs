@@ -12,7 +12,7 @@
 //! 5. Take only the program out of the archive, run it to see that it starts and reports the
 //!    version the manifest promised, and only then swap it in, keeping the one it replaces.
 //!
-//! Every input arrives through [`Context`]: the network, the clock, the keys, the addresses and
+//! Every input arrives through [`UpgradeEnvironment`]: the network, the clock, the keys, the addresses and
 //! the paths. A test hands in a scripted network and a scratch folder; the program hands in the
 //! real ones.
 
@@ -43,7 +43,7 @@ const MAX_SIGNATURE_BYTES: u64 = 4096;
 pub type Probe<'a> = &'a dyn Fn(&Path, Option<&Version>) -> Result<(), String>;
 
 /// Everything an upgrade depends on, passed in so that nothing is read from the environment.
-pub struct Context<'a> {
+pub struct UpgradeEnvironment<'a> {
     /// The network.
     pub fetch: &'a dyn Fetch,
     /// The public keys a manifest may be signed with.
@@ -191,7 +191,11 @@ pub enum UpgradeError {
 /// # Errors
 /// See [`UpgradeError`]. A refusal of the trust rules (expired, older than one seen, withdrawn,
 /// downgrade, foreign address, no file for the platform) is not an error but a [`Verdict`].
-pub fn upgrade(context: &Context<'_>, want: &Want, mode: Mode) -> Result<Report, UpgradeError> {
+pub fn upgrade(
+    context: &UpgradeEnvironment<'_>,
+    want: &Want,
+    mode: Mode,
+) -> Result<Report, UpgradeError> {
     // Whether the folder can be written to is tested by writing a file, which a check does not do.
     let blocker = blocker_of(context.installed, mode == Mode::Install);
     if mode == Mode::Install
@@ -281,7 +285,9 @@ fn manifest_may_be_remembered(outcome: &Outcome) -> bool {
 }
 
 /// Downloads the manifest and its signature and verifies the one with the other.
-fn download_manifest(context: &Context<'_>) -> Result<anaquel_update::Manifest, UpgradeError> {
+fn download_manifest(
+    context: &UpgradeEnvironment<'_>,
+) -> Result<anaquel_update::Manifest, UpgradeError> {
     let download = |what, address: &str, limit| {
         fetch_to_vec(context.fetch, address, limit)
             .map_err(|source| UpgradeError::Download { what, source })
@@ -300,7 +306,7 @@ fn download_manifest(context: &Context<'_>) -> Result<anaquel_update::Manifest, 
 
 /// Downloads, checks and swaps in the release `plan` names, and returns where the program it
 /// replaced is kept.
-fn install_plan(context: &Context<'_>, plan: &Plan) -> Result<PathBuf, UpgradeError> {
+fn install_plan(context: &UpgradeEnvironment<'_>, plan: &Plan) -> Result<PathBuf, UpgradeError> {
     let file_name = plan.asset.url.rsplit('/').next().unwrap_or_default();
     let kind = ArchiveKind::of_file_name(file_name)
         .ok_or_else(|| UpgradeError::UnknownArchive(file_name.to_owned()))?;
@@ -329,7 +335,7 @@ fn install_plan(context: &Context<'_>, plan: &Plan) -> Result<PathBuf, UpgradeEr
 
 /// Downloads the archive to `destination` and checks it against the signed manifest.
 fn download_archive(
-    context: &Context<'_>,
+    context: &UpgradeEnvironment<'_>,
     plan: &Plan,
     destination: &Path,
 ) -> Result<(), UpgradeError> {
