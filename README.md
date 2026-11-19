@@ -20,7 +20,7 @@ English | [Español](README.es.md)
 
 </div>
 
-Anaquel is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. The program itself runs on Windows and Linux (x86_64 today).
+Anaquel is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. The program itself runs on Windows and Linux; CI builds and tests it on x86_64 and ARM64 (see [Install](#install)).
 
 > **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The Linux archive was unpacked on Linux x86_64 by a second tester and ran the same four commands and a 10-minute `serve`; there the sums were compared, but the attestation signature was not verified. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to a web host has been tested, on Cloudflare or anywhere else; only the local preview server was. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
@@ -92,7 +92,7 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | Shelves, `llms.txt`, translated volumes with `hreflang` links, theme texts in English and Spanish | In the development version, not in a release yet | See [`examples/multi-shelf`](examples/multi-shelf) and [`examples/bilingual`](examples/bilingual); other theme languages read English |
 | Signed release manifest check (library `anaquel-update`) | In the development version, not wired to a command | Verifies a minisign signature, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates; no network, no keys embedded yet; the maintainer's tool `anaquel-sign` makes the keys and signs the manifest |
 | `relocate`, `upgrade`, versioned docs | Planned (M2) | The `upgrade` command that downloads and replaces the program is not written; `relocate` is under review |
-| Builds for static Linux (musl), Linux ARM64 and Windows ARM64 | Planned (M2) | Only Windows x86_64 and Linux x86_64 are built today; the new targets are not built or tested yet |
+| Builds for static Linux (musl), Linux ARM64 and Windows ARM64 | In the development version, not in a published release yet | CI runs the tests and builds and unpacks the release archive on all five targets, on native runners for both ARM ones, and checks that the static build has no dynamic dependencies. Release 0.1.1 has only Windows x86_64 and Linux x86_64; the others appear with the next release, and none of the new archives has been downloaded and run by a person |
 | A web panel to manage and edit the documentation, self-hosted on a VPS or any host | Planned, design first | Today documents are edited as files and Git; no design is written yet and nothing of the panel exists |
 
 ## Who it is for
@@ -118,7 +118,7 @@ cargo build --release -p anaquel
 
 Search needs the `pagefind` program next to `anaquel` or on your `PATH` (or set `ANAQUEL_PAGEFIND` to its path). Without it the site still builds, without a search box. `anaquel doctor` tells you which case you are in.
 
-Releases come with SHA-256 sums. They are not signed by Windows, so SmartScreen will warn you; that is expected. Only Windows x86_64 and Linux x86_64 are built and tested. macOS and Linux arm64 are not supported: nobody runs Anaquel there, and releases after 0.1.0 carry no macOS archive (0.1.0 still has two that are no longer kept up), so the installer script of a later release fails on a Mac because it finds no archive for that system; that is expected, not a bug.
+Releases come with SHA-256 sums. They are not signed by Windows, so SmartScreen will warn you; that is expected. Release 0.1.1 has archives for Windows x86_64 and Linux x86_64 only. The development version is built and tested in CI for those two, for a static Linux x86_64 build (musl, no dynamic libraries), for Linux ARM64 and for Windows ARM64; these appear in the next release. macOS is not supported: nobody runs Anaquel there, and releases after 0.1.0 carry no macOS archive (0.1.0 still has two that are no longer kept up), so the installer script of a later release fails on a Mac because it finds no archive for that system; that is expected, not a bug.
 
 ## Five-minute example
 
