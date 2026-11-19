@@ -175,10 +175,16 @@ dependencies = [
 name = "anaquel-studio"
 version = "0.2.0"
 dependencies = [
+ "anaquel-diagnostics",
  "anaquel-pipeline",
  "anaquel-schema",
+ "axum",
+ "getrandom 0.4.3",
+ "serde",
+ "serde_json",
  "sha2",
  "thiserror",
+ "tokio",
  "walkdir",
 ]
 

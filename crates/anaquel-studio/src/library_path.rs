@@ -15,7 +15,7 @@ pub enum PathError {
     /// The path is empty.
     #[error("the path is empty")]
     Empty,
-    /// The path is longer than [`MAX_PATH_BYTES`].
+    /// The path is longer than the limit (`MAX_PATH_BYTES`, 1024 bytes).
     #[error("the path is longer than {MAX_PATH_BYTES} bytes")]
     TooLong,
     /// The path is absolute, names a drive or uses a backslash.

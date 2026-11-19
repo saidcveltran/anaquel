@@ -9,10 +9,16 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+anaquel-diagnostics.workspace = true
 anaquel-pipeline.workspace = true
 anaquel-schema.workspace = true
+axum.workspace = true
+getrandom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 walkdir.workspace = true
 
 [lints]

@@ -11,13 +11,18 @@
 //! The editor changes pages that exist. Creating, renaming and deleting a page are not part of
 //! this core; a rename is `anaquel relocate`, which keeps the links and leaves a redirect.
 
+mod api;
+mod guard;
 mod library_path;
 mod page_store;
 mod pages;
+mod server;
+mod ui;
 
 pub use library_path::{LibraryPath, PathError};
 pub use page_store::{MAX_PAGE_BYTES, PageText, Revision, SaveError, read_page, save_page};
 pub use pages::{PageList, PageStatus, PageSummary, list_pages};
+pub use server::{Config as StudioConfig, Studio};
 
 #[cfg(test)]
 mod test_folder;
