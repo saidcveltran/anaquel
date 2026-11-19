@@ -21,6 +21,7 @@ Theme changes and the end of macOS support. The engine has no code change.
 
 ### Changed
 
+- The READMEs no longer present Cloudflare Workers as the target: Anaquel builds a static site that any web host can serve, and the program runs on Windows and Linux. The `_headers` and `_redirects` files are in the format Cloudflare reads; other servers need the rules copied by hand. They also say that no upload to any host has been tried, and list the planned extra builds (musl, Linux ARM64, Windows ARM64) and a self-hosted web panel as planned, not built.
 - Theme `folio`: a jump to a heading on the same page scrolls smoothly; it stays instant under reduced motion or with `data-motion="off"`.
 - Theme `folio`: jumps to a heading last 200 to 400 ms in every browser, move focus to the heading, and Back and Forward restore the position at once. Limits: the script adds about 9 KB before compression; Firefox and Safari were not run; the cases are in `docs/folio-browser-cases.md`.
 - Theme `folio`: every page writes an animated logo and a greeting to the browser console. Limits: the script grows to about 19 KB before compression (about 5.5 KB after); Firefox and Safari were not run; the cases are C1 and C2 in `docs/folio-browser-cases.md`.
