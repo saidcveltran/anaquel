@@ -75,6 +75,20 @@ enum Command {
         #[arg(long)]
         search: bool,
     },
+    /// Edit pages in your browser, with a live preview, on 127.0.0.1 only.
+    ///
+    /// Prints an address that carries a random key; open it in the browser of this computer. The
+    /// key lives only in that address and in a cookie the page cannot read, so do not share the
+    /// address. Pages are saved to the files of the library, and a page that another program
+    /// changed after it was opened is never overwritten.
+    Studio {
+        /// Library folder.
+        #[arg(default_value = ".")]
+        root: PathBuf,
+        /// Port on 127.0.0.1; 0 lets the system choose a free one.
+        #[arg(long, default_value_t = 0)]
+        port: u16,
+    },
     /// Move a page, leave a redirect at its old address and fix the links to it.
     #[command(visible_alias = "mv")]
     Relocate {
@@ -148,6 +162,7 @@ fn main() -> ExitCode {
             dry_run,
         } => move_page(root, from, to, dry_run),
         Command::Serve { root, port, search } => serve(&root, port, search),
+        Command::Studio { root, port } => studio(&root, port),
         Command::Doctor => doctor(),
         Command::Upgrade {
             check,
@@ -294,6 +309,37 @@ fn serve(root: &Path, port: u16, search: bool) -> ExitCode {
     }
 }
 
+/// Starts the editor and keeps the process alive until it is stopped (Ctrl+C) or fails.
+fn studio(root: &Path, port: u16) -> ExitCode {
+    let root = match root.canonicalize() {
+        Ok(root) => root,
+        Err(e) => {
+            return fail(&Diagnostic::error(
+                anaquel_diagnostics::Code::IO,
+                format!("{}: {e}", root.display()),
+            ));
+        }
+    };
+    let running = match anaquel_studio::Studio::start(anaquel_studio::StudioConfig {
+        root: root.clone(),
+        port,
+    }) {
+        Ok(running) => running,
+        Err(diagnostic) => return fail(&diagnostic),
+    };
+    say(&format!("studio for {}", root.display()));
+    say(
+        "open this address in the browser of this computer; it carries the key, so share it with nobody:",
+    );
+    say(&running.entry_url());
+    say("Ctrl+C to stop");
+    running.wait();
+    fail(&Diagnostic::error(
+        anaquel_diagnostics::Code::IO,
+        "the studio stopped",
+    ))
+}
+
 fn doctor() -> ExitCode {
     say(&format!("anaquel {ENGINE_VERSION}"));
     say(&format!(
@@ -310,5 +356,6 @@ fn doctor() -> ExitCode {
             "search: pagefind not found; sites build without search (install it next to `anaquel`, on PATH, or set ANAQUEL_PAGEFIND)",
         ),
     }
+    say("studio: built in; `anaquel studio` edits pages in a browser on 127.0.0.1");
     ExitCode::SUCCESS
 }
