@@ -39,6 +39,12 @@ jobs:
         run: cargo run -q --locked -p anaquel -- check examples/multi-shelf --strict
       - name: Check the bilingual library
         run: cargo run -q --locked -p anaquel -- check examples/bilingual --strict
+      - name: Update fixtures match their generator
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fixtures-venv"
+          "$RUNNER_TEMP/fixtures-venv/bin/python" -m pip install --quiet cryptography
+          "$RUNNER_TEMP/fixtures-venv/bin/python" -I tools/update_fixtures.py --check
       - name: Third-party list is up to date
         if: matrix.os == 'ubuntu-latest'
         run: python3 -I tools/third_party.py --check
