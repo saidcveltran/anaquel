@@ -1,6 +1,7 @@
 # 0004: A web panel to manage and edit the documentation
 
-Status: proposed (2026-11-19). Nothing of this is built and the decisions marked "to settle" are open.
+Status: accepted as a design (2026-11-19). Nothing of this is built. The four questions at the end
+were settled by the maintainer on the same day.
 
 ## Context
 
@@ -91,12 +92,13 @@ One more mode of the same program, `anaquel studio`, and not a separate product.
   host's own editor covers the same need for teams that know Git. The reply is the requirement
   above: people who do not use Git and want to run the editor themselves.
 
-## To settle
+## Settled by the maintainer (2026-11-19)
 
-1. Are accounts local to the server, or may a first version trust a reverse proxy that does the login?
-2. Is phase 1 (local, single user) released on its own, before any server mode?
-3. Is a panel on Cloudflare Workers a goal now, a later phase, or not a goal?
-4. Which languages for the panel's own text: English and Spanish like the theme?
+1. Accounts are local to the server, with roles; the first server version does not rely on a
+   reverse proxy for the login.
+2. Phase 1 (local, single user) is released on its own, before any server mode.
+3. A panel running on Cloudflare Workers is a later phase, not a goal now.
+4. The panel's own text is in English and Spanish, like the theme.
 
 ## Rejected
 
