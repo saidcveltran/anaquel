@@ -1,8 +1,9 @@
 # 0005: The `upgrade` command
 
-Status: accepted as a design (2026-11-19), with the three questions at the end settled by the
-maintainer. Nothing of the command is built; `anaquel-update` (the trust core) and the two release
-public keys are merged.
+Status: accepted as a design (2026-11-19), with the questions at the end settled by the
+maintainer. Built so far: `anaquel-update` (the trust core), the two release public keys,
+`anaquel-sign manifest` and, in `anaquel-upgrade`, the archive, swap and state pieces. The command
+itself and the network client are not built.
 
 ## Context
 
@@ -96,6 +97,22 @@ runs a command that says so.
 2. The Linux archives change to `.tar.gz`; Windows stays `.zip`. The next release's file names
    change.
 3. `anaquel-sign` gets a command that writes the manifest from the release plan.
+
+Revised by the maintainer later on 2026-11-19, with the reasons:
+
+2. (revised) **Both systems use `.tar.gz`.** One reader (`flate2` and `tar`, already built and
+   tested in `anaquel-upgrade`) instead of two. The `zip` library published a new version nearly
+   every day in November 2026 (9.4 to 9.7 in two weeks) and brings many dependencies, so it would
+   be the least settled code on the path that handles downloaded data. Before the release
+   configuration changes, `dist` must be shown to write `.tar.gz` for Windows and its PowerShell
+   installer to accept it; if it does not, this point is reopened and `.zip` comes back with an
+   older, settled version of the library.
+4. **The HTTPS client is `ureq` with `rustls` and the `ring` provider.** Everything in Rust, with
+   no dependence on `curl` or PowerShell. Costs stated when it was chosen: `deny.toml` admits
+   neither the licence of the root certificate bundle (CDLA-Permissive-2.0) nor the one of `ring`,
+   so the licence policy is extended for those two crates by name and not in general; the binary
+   grows by a few MiB; `ring` needs a C compiler or assembler on Windows ARM64 and musl, which CI
+   has not yet shown.
 
 ## Order of work
 
