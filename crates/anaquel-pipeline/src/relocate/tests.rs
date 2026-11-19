@@ -29,7 +29,7 @@ fn fixture(name: &str) -> Scratch {
     let s = Scratch::new(name);
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\n",
     );
     s.put("volumes/guide/volume.toml", "title = \"Guide\"\n");
     s.put(
@@ -67,7 +67,7 @@ fn shelves(name: &str) -> Scratch {
     let s = Scratch::new(name);
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Shelves\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Shelves\"\n",
     );
     for shelf in ["guides", "reference"] {
         s.put(
@@ -448,7 +448,7 @@ fn a_swap_of_two_pages_through_a_folder_move_is_refused() {
     let s = Scratch::new("reloc-chain-pages");
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Chain\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Chain\"\n",
     );
     s.put("volumes/g/volume.toml", "title = \"G\"\n");
     s.put("volumes/g/_index.md", "# G\n");

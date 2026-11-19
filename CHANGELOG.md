@@ -10,6 +10,8 @@ All notable changes to this project are written here. The format follows
 
 ### Changed
 
+- **Libraries must change `engine = "0.1"` to `engine = "0.2"` in `anaquel.toml`.** Before 1.0 a library needs the same minor line as the engine, so engine 0.2 refuses a library that says `0.1` (error AQ0102, "this library needs engine 0.1"). Nothing else in the library format changed in this release; the new keys and folders (`shelves/`, `language` and `translations` in `volume.toml`) are optional. The four libraries in `examples/` and the `folio` theme now say `0.2`.
+
 - Release archives: from the next release the Linux archives are `.tar.gz` (`anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for musl and ARM64), which the coming `anaquel upgrade` reads with a small pure-Rust library; the Windows archives stay `.zip`, the format winget documents. `dist plan` lists the five archives with these names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; anyone who unpacked a Linux `.tar.xz` by hand now needs `tar -xzf`; whether winget or Scoop would also accept a `.tar.gz` was not established, only that `.zip` is the format their documentation names.
 
 ### Added

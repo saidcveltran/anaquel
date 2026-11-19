@@ -46,7 +46,7 @@ impl Drop for Scratch {
 pub(crate) fn library(s: &Scratch) {
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\nbase_url = \"https://docs.example\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\nbase_url = \"https://docs.example\"\n",
     );
     s.put(
         "volumes/guide/volume.toml",
@@ -352,7 +352,7 @@ fn a_library_may_have_shelves_and_no_loose_volumes() {
     let s = Scratch::new("shelves-only");
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\n",
     );
     s.put("shelves/a/shelf.toml", "title = \"A\"\n");
     s.put("shelves/a/volumes/v/volume.toml", "title = \"V\"\n");
@@ -367,7 +367,7 @@ fn a_shelf_without_its_manifest_is_an_error() {
     let s = Scratch::new("shelf-no-manifest");
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\n",
     );
     s.put("shelves/a/volumes/v/volume.toml", "title = \"V\"\n");
     s.put("shelves/a/volumes/v/_index.md", "# V\n");
@@ -389,7 +389,7 @@ fn the_not_found_page_and_the_home_page_use_the_library_language() {
     let s = Scratch::new("spanish-library");
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\nlanguage = \"es\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\nlanguage = \"es\"\n",
     );
     s.put("volumes/guia/volume.toml", "title = \"Guía\"\n");
     s.put("volumes/guia/_index.md", "# Guía\n");
@@ -412,7 +412,7 @@ fn a_translation_mistake_stops_the_build_with_a_located_error() {
     let s = Scratch::new("bad-translation");
     s.put(
         "anaquel.toml",
-        "schema = 1\nengine = \"0.1\"\ntitle = \"Demo\"\n",
+        "schema = 1\nengine = \"0.2\"\ntitle = \"Demo\"\n",
     );
     s.put(
         "volumes/guia/volume.toml",

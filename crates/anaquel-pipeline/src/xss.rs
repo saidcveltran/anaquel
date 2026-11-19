@@ -383,7 +383,7 @@ fn hostile_library(s: &Scratch) {
     s.put(
         "anaquel.toml",
         &format!(
-            "schema = 1\nengine = \"0.1\"\ntitle = \"Demo {}\"\nbase_url = \"https://docs.example\"\n",
+            "schema = 1\nengine = \"0.2\"\ntitle = \"Demo {}\"\nbase_url = \"https://docs.example\"\n",
             HOSTILE_SCRIPT.replace('"', "\\\"")
         ),
     );
