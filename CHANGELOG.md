@@ -8,7 +8,7 @@ All notable changes to this project are written here. The format follows
 
 ### Changed
 
-- Release archives: from the next release every system gets a `.tar.gz` (`anaquel-x86_64-pc-windows-msvc.tar.gz` instead of `.zip`, `anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for the other targets), so the coming `anaquel upgrade` reads one format. `dist plan` lists the five archives with the new names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; the PowerShell installer unpacks `.tar.*` with the `tar` of Windows, which was read in the generated file and has not been run on Windows; anyone who unpacked `.zip` by hand now needs `tar -xzf`, which Windows 10 and later include.
+- Release archives: from the next release the Linux archives are `.tar.gz` (`anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for musl and ARM64), which the coming `anaquel upgrade` reads with a small pure-Rust library; the Windows archives stay `.zip`, the format winget documents. `dist plan` lists the five archives with these names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; anyone who unpacked a Linux `.tar.xz` by hand now needs `tar -xzf`; whether winget or Scoop would also accept a `.tar.gz` was not established, only that `.zip` is the format their documentation names.
 
 ### Added
 
