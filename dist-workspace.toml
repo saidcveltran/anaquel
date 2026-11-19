@@ -17,6 +17,9 @@ targets = [
     "x86_64-pc-windows-msvc",
     "aarch64-pc-windows-msvc",
 ]
+# One archive format on every system: the program that upgrades itself reads only this one
+unix-archive = ".tar.gz"
+windows-archive = ".tar.gz"
 # Where to host releases
 hosting = "github"
 # A SHA-256 sum next to each archive, and a build attestation of GitHub

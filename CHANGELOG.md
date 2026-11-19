@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Release archives: from the next release every system gets a `.tar.gz` (`anaquel-x86_64-pc-windows-msvc.tar.gz` instead of `.zip`, `anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for the other targets), so the coming `anaquel upgrade` reads one format. `dist plan` lists the five archives with the new names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; the PowerShell installer unpacks `.tar.*` with the `tar` of Windows, which was read in the generated file and has not been run on Windows; anyone who unpacked `.zip` by hand now needs `tar -xzf`, which Windows 10 and later include.
+
 ### Added
 
 - `anaquel-sign manifest --dir DIR --version X.Y.Z`: writes `release-manifest.json` from the archives `dist` built (`anaquel-TARGET.tar.gz` or `.zip`), so nobody types a hash. It computes each archive's SHA-256 and size and requires the `.sha256` file beside it to agree (a swapped or damaged archive stops it), keeps the releases and advisories of `--previous` unchanged, refuses another channel, an earlier issue time or a version already listed, checks the download address is under the project's own release address (`https://github.com/saidcveltran/anaquel/releases/download/`, no `//`, `.` or `..` segment), takes the times from the clock (`--valid-days`, 60 by default and at most 365) or from `--published`, `--issued` and `--expires`, and parses the result with the program's own manifest reader before it is saved. It never replaces a file. Limits: it signs nothing (`sign` is a separate step); `--previous` is checked for shape, not for a signature; it does not mark a release withdrawn or write advisories (they are carried over, and added by editing the file); only `.tar.gz` and `.zip` archives are listed; dates beyond the year 9999 are refused.

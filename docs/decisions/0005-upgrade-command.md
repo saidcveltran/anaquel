@@ -48,8 +48,11 @@ runs a command that says so.
   tool and does nothing.
 - **Archives.** `dist` writes `.tar.xz` for Linux today. Reading it needs a C library for LZMA
   or a slower pure-Rust one. The release configuration is changed to `.tar.gz`, which a small
-  pure-Rust crate reads, and Windows keeps `.zip`. This changes the archive names of the next
-  release only; the installers follow the configuration.
+  pure-Rust crate reads, on Windows as well (see "Settled by the maintainer"). This changes the
+  archive names of the next release only; the installers follow the configuration. `dist plan`
+  lists `.tar.gz` for all five targets and the PowerShell installer it generates unpacks any
+  `.tar.*` with the `tar` program of Windows, which was read in the generated file and has not
+  been run on Windows yet.
 - **Network library.** A small blocking HTTPS client with a pure-Rust TLS stack, added to the
   program (`ureq`). The release address answers with a redirect to GitHub's download hosts, so
   redirects are followed only within a short list of GitHub hosts and only over HTTPS; integrity
