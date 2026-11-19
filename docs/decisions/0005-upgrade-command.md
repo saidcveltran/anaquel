@@ -2,7 +2,8 @@
 
 Status: accepted as a design (2026-11-19), with the questions at the end settled by the
 maintainer. Built so far: `anaquel-update` (the trust core), the two release public keys,
-`anaquel-sign manifest` and, in `anaquel-upgrade`, the archive, swap and state pieces. The command
+`anaquel-sign manifest` and, in `anaquel-upgrade`, the archive (`.tar.gz` only so far), swap and
+state pieces. The command
 itself and the network client are not built.
 
 ## Context
@@ -100,13 +101,11 @@ runs a command that says so.
 
 Revised by the maintainer later on 2026-11-19, with the reasons:
 
-2. (revised) **Both systems use `.tar.gz`.** One reader (`flate2` and `tar`, already built and
-   tested in `anaquel-upgrade`) instead of two. The `zip` library published a new version nearly
-   every day in November 2026 (9.4 to 9.7 in two weeks) and brings many dependencies, so it would
-   be the least settled code on the path that handles downloaded data. Before the release
-   configuration changes, `dist` must be shown to write `.tar.gz` for Windows and its PowerShell
-   installer to accept it; if it does not, this point is reopened and `.zip` comes back with an
-   older, settled version of the library.
+2. (revised) **Linux `.tar.gz`, Windows `.zip`, both read.** The maintainer first chose one
+   `.tar.gz` format for both, to avoid the `zip` library, which published a new version nearly
+   every day in November 2026 (9.4 to 9.7 in two weeks). The documentation of winget names zip
+   archives and no tar archive, and Scoop's page does not name `.tar.gz`, so Windows keeps `.zip`
+   and the library is added at a version more than two weeks old. `anaquel-upgrade` reads both.
 4. **The HTTPS client is `ureq` with `rustls` and the `ring` provider.** Everything in Rust, with
    no dependence on `curl` or PowerShell. Costs stated when it was chosen: `deny.toml` admits
    neither the licence of the root certificate bundle (CDLA-Permissive-2.0) nor the one of `ring`,
