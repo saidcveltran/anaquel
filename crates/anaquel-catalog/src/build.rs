@@ -634,7 +634,11 @@ fn collect_redirects(
     redirects
 }
 
-fn normalise_alias(alias: &str) -> Result<String, String> {
+/// Turns an alias as written in a page into the address it redirects from.
+///
+/// # Errors
+/// Returns a message when the alias does not start with `/` or is not a plain path.
+pub fn normalise_alias(alias: &str) -> Result<String, String> {
     let bad = |why: &str| format!("alias `{alias}` {why}");
     if !alias.starts_with('/') {
         return Err(bad("must start with `/`"));

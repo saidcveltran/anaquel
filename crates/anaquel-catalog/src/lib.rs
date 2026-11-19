@@ -11,7 +11,7 @@ mod links;
 mod logical_path;
 mod model;
 
-pub use build::HeadingsOf;
+pub use build::{HeadingsOf, normalise_alias};
 pub use links::ResolvedLink;
 pub use logical_path::LogicalPath;
 pub use model::{
@@ -141,6 +141,14 @@ impl Catalog {
     /// points at a missing file or anchor, or at a draft.
     pub fn resolve_link(&self, from: EntryId, href: &str) -> Result<ResolvedLink, Diagnostic> {
         links::resolve(self, from, href)
+    }
+
+    /// The library path a relative link written in `from` points at, whether or not it exists.
+    ///
+    /// `None` for anchors, absolute addresses, links with a scheme or a query, and links that
+    /// leave the library.
+    pub fn local_target(&self, from: EntryId, href: &str) -> Option<LogicalPath> {
+        links::local_target(self, from, href)
     }
 
     /// Finds the heading a `[[term]]` written in `from` points at.

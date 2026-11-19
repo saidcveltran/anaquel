@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anaquel_diagnostics::{Diagnostic, Severity};
-use anaquel_pipeline::{ENGINE_VERSION, Options, Outcome, build, check};
+use anaquel_pipeline::{ENGINE_VERSION, Options, Outcome, RelocateOptions, build, check, relocate};
 use anaquel_preview::{Config, Hooks};
 use clap::{Parser, Subcommand};
 
@@ -75,6 +75,20 @@ enum Command {
         #[arg(long)]
         search: bool,
     },
+    /// Move a page, leave a redirect at its old address and fix the links to it.
+    #[command(visible_alias = "mv")]
+    Relocate {
+        /// Page to move, such as `volumes/guide/setup.md`.
+        from: String,
+        /// New place of the page.
+        to: String,
+        /// Library folder.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Show the plan and write nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Show what this installation can and cannot do.
     Doctor,
     /// Replace this program with a newer release, after checking its signature.
@@ -127,6 +141,12 @@ fn main() -> ExitCode {
             }
             Err(diagnostic) => fail(&diagnostic),
         },
+        Command::Relocate {
+            from,
+            to,
+            root,
+            dry_run,
+        } => move_page(root, from, to, dry_run),
         Command::Serve { root, port, search } => serve(&root, port, search),
         Command::Doctor => doctor(),
         Command::Upgrade {
@@ -144,6 +164,40 @@ fn main() -> ExitCode {
             say(&format!("anaquel {ENGINE_VERSION}"));
             ExitCode::SUCCESS
         }
+    }
+}
+
+fn move_page(root: PathBuf, from: String, to: String, dry_run: bool) -> ExitCode {
+    let outcome = relocate(&RelocateOptions {
+        root,
+        from,
+        to,
+        dry_run,
+    });
+    let (applied, incomplete) = (outcome.applied, outcome.incomplete);
+    print_report(&Outcome {
+        report: outcome.report,
+        pages: 0,
+        written: None,
+        searched: false,
+    });
+    for line in &outcome.plan {
+        say(line);
+    }
+    if applied {
+        say("moved; run `anaquel check --strict` to confirm");
+        ExitCode::SUCCESS
+    } else if dry_run && outcome.plan.is_empty() {
+        ExitCode::from(EXIT_PROBLEMS)
+    } else if dry_run {
+        say("dry run: nothing was written");
+        ExitCode::SUCCESS
+    } else if incomplete {
+        say("the move failed and some files could not be put back; see the message above");
+        ExitCode::from(EXIT_FAILED)
+    } else {
+        say("nothing was written");
+        ExitCode::from(EXIT_PROBLEMS)
     }
 }
 

@@ -1,6 +1,7 @@
 use anaquel_diagnostics::{Code, Diagnostic};
 
 use crate::Catalog;
+use crate::LogicalPath;
 use crate::build::term_key;
 use crate::logical_path::join;
 use crate::model::{EntryId, TermTarget};
@@ -113,6 +114,26 @@ pub(crate) fn resolve(
             )))
         }
     }
+}
+
+pub(crate) fn local_target(catalog: &Catalog, from: EntryId, href: &str) -> Option<LogicalPath> {
+    if href.is_empty()
+        || href.starts_with(['#', '/'])
+        || href.contains('?')
+        || scheme_of(href).is_some()
+    {
+        return None;
+    }
+    let origin = catalog.entry(from)?;
+    let path_part = href.split_once('#').map_or(href, |(p, _)| p);
+    let decoded = percent_decode(path_part)?;
+    let origin_dir = catalog.volumes[origin.volume].folder();
+    let base = if origin.rel.dir().is_empty() {
+        origin_dir
+    } else {
+        format!("{origin_dir}/{}", origin.rel.dir())
+    };
+    join(&base, &decoded)
 }
 
 fn check_anchor(catalog: &Catalog, entry: EntryId, anchor: &str) -> Result<(), Diagnostic> {

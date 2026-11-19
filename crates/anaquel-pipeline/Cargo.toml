@@ -19,6 +19,7 @@ anaquel-render.workspace = true
 anaquel-schema.workspace = true
 anaquel-search.workspace = true
 anaquel-theme.workspace = true
+pulldown-cmark.workspace = true
 rayon.workspace = true
 serde.workspace = true
 walkdir.workspace = true
