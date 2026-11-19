@@ -7,7 +7,7 @@ use anaquel_schema::{LibraryManifest, ShelfManifest, VolumeManifest};
 use walkdir::WalkDir;
 
 /// Largest Markdown file read, in bytes. Bounds memory on hostile input.
-const MAX_PAGE_BYTES: u64 = 5 * 1024 * 1024;
+pub const MAX_PAGE_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Name of the folder that holds the volumes.
 pub(crate) const VOLUMES_DIR: &str = "volumes";

@@ -4,9 +4,12 @@
 //! writing anything. [`build`] runs all of them and writes the site.
 
 mod ingest;
+mod preview;
 mod relocate;
 mod views;
 
+pub use ingest::MAX_PAGE_BYTES;
+pub use preview::{PagePreview, ThemeAsset, preview_page, theme_assets};
 pub use relocate::{RelocateOptions, RelocateOutcome, relocate};
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -194,16 +197,9 @@ pub fn build(options: &Options) -> Outcome {
     outcome
 }
 
-fn render_site(
-    root: &Path,
-    analysis: &Analysis,
-    search: bool,
-) -> Result<Vec<OutputFile>, Diagnostic> {
-    let catalog = &analysis.catalog;
-    let theme = Theme::folio()?;
-    let renderer = Renderer::new(&theme)?;
-    let site = views::site_view(catalog, search);
-
+/// The assets of a theme under their fingerprinted names, and the URL each one is served at,
+/// keyed by its path in the theme.
+fn fingerprint_theme_assets(theme: &Theme) -> (Vec<OutputFile>, BTreeMap<String, String>) {
     let mut asset_urls: BTreeMap<String, String> = BTreeMap::new();
     let mut outputs = Vec::new();
     // Stylesheets last: they may name other assets as `asset:<path>`, which
@@ -223,6 +219,20 @@ fn render_site(
         asset_urls.insert(asset.path.clone(), format!("/{name}"));
         outputs.push(OutputFile { path: name, bytes });
     }
+    (outputs, asset_urls)
+}
+
+fn render_site(
+    root: &Path,
+    analysis: &Analysis,
+    search: bool,
+) -> Result<Vec<OutputFile>, Diagnostic> {
+    let catalog = &analysis.catalog;
+    let theme = Theme::folio()?;
+    let renderer = Renderer::new(&theme)?;
+    let site = views::site_view(catalog, search);
+
+    let (mut outputs, asset_urls) = fingerprint_theme_assets(&theme);
 
     let pages: Result<Vec<OutputFile>, Diagnostic> = analysis
         .composed
