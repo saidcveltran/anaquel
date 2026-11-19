@@ -6,6 +6,10 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anaquel_sign::KdfCost;
+use anaquel_sign::release_manifest::{
+    ManifestBuildError, ReleaseInput, TimeChoice, default_base_url, resolve_times,
+    write_release_manifest,
+};
 use anaquel_sign::workflow::{self, PassphraseSource, WorkflowError};
 use clap::{Parser, Subcommand};
 use zeroize::Zeroizing;
@@ -43,6 +47,48 @@ enum Command {
         /// The `release-manifest.json` to sign.
         manifest: PathBuf,
     },
+    /// Write the release manifest from the archives `dist` built; never replaces a file.
+    Manifest {
+        /// Folder with the `anaquel-TARGET.tar.gz` or `.zip` archives and their `.sha256` files.
+        #[arg(long)]
+        dir: PathBuf,
+        /// The version being released, such as `0.2.0`.
+        #[arg(long)]
+        version: semver::Version,
+        /// Release line of the manifest.
+        #[arg(long, default_value = "stable")]
+        channel: String,
+        /// The manifest of the previous release, whose releases and advisories are kept.
+        #[arg(long)]
+        previous: Option<PathBuf>,
+        /// Publication time, `YYYY-MM-DDTHH:MM:SSZ`; the clock by default.
+        #[arg(long)]
+        published: Option<String>,
+        /// Issue time; the clock by default. Needs `--expires`.
+        #[arg(long, requires = "expires")]
+        issued: Option<String>,
+        /// Expiry time; `--valid-days` after the clock by default.
+        #[arg(long)]
+        expires: Option<String>,
+        /// Days the manifest stays valid when `--expires` is not given.
+        #[arg(long, default_value_t = 60)]
+        valid_days: u64,
+        /// Folder address of the archives; defaults to the project's release for the version.
+        #[arg(long)]
+        base_url: Option<String>,
+        /// The file to write; it must not exist yet.
+        #[arg(long, default_value = "release-manifest.json")]
+        out: PathBuf,
+    },
+}
+
+/// Why a command did not finish.
+#[derive(Debug, thiserror::Error)]
+enum CliError {
+    #[error(transparent)]
+    Workflow(#[from] WorkflowError),
+    #[error(transparent)]
+    Manifest(#[from] ManifestBuildError),
 }
 
 /// Reads passphrases from the terminal without echoing them.
@@ -65,7 +111,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(command: Command) -> Result<(), WorkflowError> {
+fn run(command: Command) -> Result<(), CliError> {
     let mut out = io::stdout();
     match command {
         Command::Keygen { name, out: dir } => {
@@ -94,14 +140,55 @@ fn run(command: Command) -> Result<(), WorkflowError> {
                 workflow::sign_manifest(&key, &public, &manifest, &comment, &mut Terminal)?;
             let _ = writeln!(out, "signature written to {}", written.display());
         }
+        Command::Manifest {
+            dir,
+            version,
+            channel,
+            previous,
+            published,
+            issued,
+            expires,
+            valid_days,
+            base_url,
+            out: out_path,
+        } => {
+            let choice = TimeChoice {
+                published: published.as_deref(),
+                issued: issued.as_deref(),
+                expires: expires.as_deref(),
+                valid_days,
+            };
+            let (published, issued, expires) = resolve_times(now_unix(), &choice)?;
+            let input = ReleaseInput {
+                base_url: base_url.unwrap_or_else(|| default_base_url(&version)),
+                channel,
+                version,
+                published,
+                issued,
+                expires,
+            };
+            write_release_manifest(previous.as_deref(), &input, &dir, &out_path)?;
+            let _ = writeln!(
+                out,
+                "manifest for {} written to {} (valid until {})",
+                input.version,
+                out_path.display(),
+                input.expires
+            );
+        }
     }
     Ok(())
 }
 
-fn default_comment(manifest: &std::path::Path) -> String {
-    let seconds = SystemTime::now()
+/// Seconds since 1970-01-01T00:00:00Z on the system clock; zero if the clock is before it.
+fn now_unix() -> u64 {
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
+        .map_or(0, |elapsed| elapsed.as_secs())
+}
+
+fn default_comment(manifest: &std::path::Path) -> String {
+    let seconds = now_unix();
     let file = manifest
         .file_name()
         .map_or_else(|| "manifest".into(), |name| name.to_string_lossy());
