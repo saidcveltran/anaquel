@@ -15,6 +15,8 @@ use crate::key::{KdfCost, SigningKey, check_new_passphrase};
 
 /// Largest key file read; a real one is under 300 bytes.
 const MAX_KEY_FILE_BYTES: u64 = 4096;
+/// Largest public key file read; a real one is about 100 bytes.
+const MAX_PUBLIC_FILE_BYTES: u64 = 4096;
 /// Longest name for a key.
 const MAX_NAME_CHARS: usize = 32;
 
@@ -69,6 +71,27 @@ pub enum WorkflowError {
     /// The signature just made is not accepted by the verifier the program ships.
     #[error("the new signature does not verify, so nothing was written: {0}")]
     SignatureRejected(UpdateError),
+    /// The public key file is not a minisign public key file the program can use.
+    #[error("{path} is not a usable public key file: {reason}", path = path.display())]
+    BadPublicKeyFile {
+        /// The file concerned.
+        path: PathBuf,
+        /// What is wrong with it.
+        reason: String,
+    },
+    /// The private key opened is not the one the public key file names.
+    #[error(
+        "this private key is not the one the public key file names (it is {opened}, the file has {expected}); nothing was signed"
+    )]
+    KeyMismatch {
+        /// Public key line of the key that was opened.
+        opened: String,
+        /// Public key line in the public key file.
+        expected: String,
+    },
+    /// The key file just sealed does not open with the passphrase that was typed.
+    #[error("the new key file did not open again with the typed passphrase; nothing was written")]
+    SealCheckFailed,
 }
 
 /// What `keygen` made.
@@ -115,6 +138,7 @@ pub fn keygen(
 
     let key = SigningKey::generate()?;
     let sealed = key.seal(&first, cost)?;
+    confirm_sealed(&key, &sealed, &first)?;
 
     fs::create_dir_all(dir).map_err(io_error(dir))?;
     write_new(&public_path, key.public_key_file().as_bytes(), false)?;
@@ -133,14 +157,17 @@ pub fn keygen(
 
 /// Signs `manifest_path` with the key in `key_path` and writes `MANIFEST.minisig` beside it.
 ///
-/// Before signing, the manifest must be one the program would accept; after signing,
-/// the signature must verify with the shipped verifier. A file that already exists is
-/// never replaced.
+/// `public_path` is the public key file the signature must verify with. The private
+/// key is refused unless it is that key, so a wrong file chosen by mistake signs
+/// nothing. Before signing, the manifest must be one the program would accept; after
+/// signing, the signature must verify with the shipped verifier against that public
+/// key. A file that already exists is never replaced.
 ///
 /// # Errors
 /// See [`WorkflowError`].
 pub fn sign_manifest(
     key_path: &Path,
+    public_path: &Path,
     manifest_path: &Path,
     trusted_comment: &str,
     prompts: &mut dyn PassphraseSource,
@@ -151,21 +178,59 @@ pub fn sign_manifest(
     }
     let manifest = read_limited(manifest_path, MAX_MANIFEST_BYTES as u64)?;
     Manifest::parse(&manifest).map_err(WorkflowError::ManifestRefused)?;
+    let expected = read_public_key_line(public_path)?;
+    let trusted = TrustedKeys::from_base64(&[expected.as_str()]).map_err(|error| {
+        WorkflowError::BadPublicKeyFile {
+            path: public_path.to_owned(),
+            reason: error.to_string(),
+        }
+    })?;
 
     let key_text = read_limited(key_path, MAX_KEY_FILE_BYTES)?;
     let key_text = String::from_utf8(key_text)
         .map_err(|_| SignError::KeyFileFormat("the file is not text".to_owned()))?;
+    SigningKey::check_file_format(&key_text)?;
     let passphrase = ask(prompts, "Passphrase: ")?;
     let key = SigningKey::open(&key_text, &passphrase)?;
+    let opened = key.public_key_line();
+    if opened != expected {
+        return Err(WorkflowError::KeyMismatch { opened, expected });
+    }
 
     let signature = key.sign(&manifest, trusted_comment)?;
-    let own_key = key.public_key_line();
-    let trusted =
-        TrustedKeys::from_base64(&[own_key.as_str()]).map_err(WorkflowError::SignatureRejected)?;
     verify_manifest(&manifest, &signature, &trusted).map_err(WorkflowError::SignatureRejected)?;
 
     write_new(&signature_path, signature.as_bytes(), false)?;
     Ok(signature_path)
+}
+
+/// Opens the sealed text again with the typed passphrase and checks it is the same key,
+/// so a passphrase that cannot be typed back is found before anything is written.
+fn confirm_sealed(key: &SigningKey, sealed: &str, passphrase: &str) -> Result<(), WorkflowError> {
+    match SigningKey::open(sealed, passphrase) {
+        Ok(reopened) if reopened.public_key_line() == key.public_key_line() => Ok(()),
+        _ => Err(WorkflowError::SealCheckFailed),
+    }
+}
+
+/// The key line of a minisign public key file: a comment line, then the base64 key.
+fn read_public_key_line(path: &Path) -> Result<String, WorkflowError> {
+    let bad = |reason: &str| WorkflowError::BadPublicKeyFile {
+        path: path.to_owned(),
+        reason: reason.to_owned(),
+    };
+    let text = String::from_utf8(read_limited(path, MAX_PUBLIC_FILE_BYTES)?)
+        .map_err(|_| bad("the file is not text"))?;
+    let mut lines = text.lines().filter(|line| !line.trim().is_empty());
+    let comment = lines.next().ok_or_else(|| bad("the file is empty"))?;
+    if !comment.starts_with("untrusted comment:") {
+        return Err(bad("the first line is not a comment"));
+    }
+    let key = lines.next().ok_or_else(|| bad("the key line is missing"))?;
+    if lines.next().is_some() {
+        return Err(bad("there is text after the key line"));
+    }
+    Ok(key.trim().to_owned())
 }
 
 /// `release-manifest.json` becomes `release-manifest.json.minisig`.
@@ -225,6 +290,19 @@ fn read_limited(path: &Path, limit: u64) -> Result<Vec<u8>, WorkflowError> {
 /// Creates `path`, failing if it exists. A private file is readable by its owner only
 /// where the system supports that; on Windows it keeps the permissions of its folder.
 fn write_new(path: &Path, bytes: &[u8], private: bool) -> Result<(), WorkflowError> {
+    create_new_with(path, private, |file| {
+        file.write_all(bytes).and_then(|()| file.sync_all())
+    })
+}
+
+/// Creates `path` and fills it with `write_contents`. If filling fails, the file this call made
+/// is removed, so no truncated key or signature is left behind to be mistaken for a
+/// real one.
+fn create_new_with(
+    path: &Path,
+    private: bool,
+    write_contents: impl FnOnce(&mut File) -> io::Result<()>,
+) -> Result<(), WorkflowError> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -244,9 +322,15 @@ fn write_new(path: &Path, bytes: &[u8], private: bool) -> Result<(), WorkflowErr
             }
         }
     })?;
-    file.write_all(bytes)
-        .and_then(|()| file.sync_all())
-        .map_err(io_error(path))
+    if let Err(source) = write_contents(&mut file) {
+        drop(file);
+        let _ = fs::remove_file(path);
+        return Err(WorkflowError::Io {
+            path: path.to_owned(),
+            source,
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

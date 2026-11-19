@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use base64::Engine as _;
@@ -5,6 +6,7 @@ use base64::engine::general_purpose::STANDARD;
 use blake2::{Blake2b256, Digest};
 use ed25519_compact::{KeyPair, Seed};
 use scrypt::Params;
+use unicode_normalization::UnicodeNormalization as _;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::error::SignError;
@@ -30,6 +32,10 @@ const MAX_LOG_N: u8 = 22;
 const MIN_LOG_N: u8 = 10;
 const MAX_R: u32 = 16;
 const MAX_P: u32 = 4;
+/// scrypt allocates 128 * r * N bytes; this caps it whatever `r` and `N` are.
+const MAX_SCRYPT_BYTES: u64 = 1 << 30;
+/// A passphrase of one repeated character is as weak as a short one.
+const MIN_DISTINCT_CHARS: usize = 6;
 
 /// How hard it is to guess a passphrase: the scrypt cost written into the key file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,6 +68,7 @@ impl KdfCost {
         if (MIN_LOG_N..=MAX_LOG_N).contains(&log_n)
             && (1..=MAX_R).contains(&r)
             && (1..=MAX_P).contains(&p)
+            && (u64::from(r) * 128) << log_n <= MAX_SCRYPT_BYTES
         {
             Ok(Self { log_n, r, p })
         } else {
@@ -110,7 +117,10 @@ impl SigningKey {
     ///
     /// # Errors
     /// Returns [`SignError::KeyFileFormat`] for an all-zero seed.
-    pub fn from_parts(seed: [u8; SEED_LEN], key_id: [u8; KEY_ID_LEN]) -> Result<Self, SignError> {
+    pub(crate) fn from_parts(
+        seed: [u8; SEED_LEN],
+        key_id: [u8; KEY_ID_LEN],
+    ) -> Result<Self, SignError> {
         let seed = Zeroizing::new(seed);
         // Reject a seed the signing library cannot use before it is stored anywhere.
         let pair = KeyPair::try_from_seed(Seed::new(*seed))
@@ -177,7 +187,7 @@ impl SigningKey {
     ///
     /// # Errors
     /// The same as [`SigningKey::seal`].
-    pub fn seal_with_salt(
+    pub(crate) fn seal_with_salt(
         &self,
         passphrase: &str,
         cost: KdfCost,
@@ -212,19 +222,7 @@ impl SigningKey {
         if passphrase.is_empty() {
             return Err(SignError::WrongPassphraseOrDamaged);
         }
-        let body = decode_body(text)?;
-        let version = body[MAGIC.len()];
-        if version != FORMAT_VERSION {
-            return Err(SignError::UnsupportedKeyFile {
-                found: version,
-                supported: FORMAT_VERSION,
-            });
-        }
-        let cost = KdfCost::new(
-            body[5],
-            u32::from_le_bytes([body[6], body[7], body[8], body[9]]),
-            u32::from_le_bytes([body[10], body[11], body[12], body[13]]),
-        )?;
+        let (body, cost) = parse_file(text)?;
         let salt = array_at::<SALT_LEN>(&body, 14);
         let (signed, tag) = body.split_at(BODY_LEN - TAG_LEN);
 
@@ -244,14 +242,44 @@ impl SigningKey {
         seed.zeroize();
         key
     }
+
+    /// Checks that `text` is a key file this version can read, without a passphrase and
+    /// without any key stretching, so a wrong file is refused before a passphrase is asked.
+    ///
+    /// # Errors
+    /// The format errors of [`SigningKey::open`].
+    pub fn check_file_format(text: &str) -> Result<(), SignError> {
+        parse_file(text).map(|_| ())
+    }
+}
+
+/// The decoded body of a key file and the scrypt cost it asks for, after the checks
+/// that need no passphrase: layout, version and cost bounds.
+fn parse_file(text: &str) -> Result<(Vec<u8>, KdfCost), SignError> {
+    let body = decode_body(text)?;
+    let version = body[MAGIC.len()];
+    if version != FORMAT_VERSION {
+        return Err(SignError::UnsupportedKeyFile {
+            found: version,
+            supported: FORMAT_VERSION,
+        });
+    }
+    let cost = KdfCost::new(
+        body[5],
+        u32::from_le_bytes([body[6], body[7], body[8], body[9]]),
+        u32::from_le_bytes([body[10], body[11], body[12], body[13]]),
+    )?;
+    Ok((body, cost))
 }
 
 /// Checks a passphrase for a new key.
 ///
 /// # Errors
-/// Returns [`SignError::WeakPassphrase`] when it has fewer than [`MIN_PASSPHRASE_CHARS`] characters.
+/// Returns [`SignError::WeakPassphrase`] when it has fewer than [`MIN_PASSPHRASE_CHARS`]
+/// characters or fewer than six different ones.
 pub fn check_new_passphrase(passphrase: &str) -> Result<(), SignError> {
-    if passphrase.chars().count() < MIN_PASSPHRASE_CHARS {
+    let distinct = passphrase.chars().collect::<BTreeSet<_>>().len();
+    if passphrase.chars().count() < MIN_PASSPHRASE_CHARS || distinct < MIN_DISTINCT_CHARS {
         Err(SignError::WeakPassphrase {
             minimum: MIN_PASSPHRASE_CHARS,
         })
@@ -270,9 +298,12 @@ fn stretch(
     salt: &[u8; SALT_LEN],
     cost: KdfCost,
 ) -> Result<Zeroizing<[u8; 64]>, SignError> {
+    // The same letters typed as one composed character or as a base letter plus an
+    // accent are one passphrase; without this the key would open on one keyboard only.
+    let normalized: Zeroizing<String> = Zeroizing::new(passphrase.nfc().collect());
     let mut derived = Zeroizing::new([0u8; 64]);
     scrypt::scrypt(
-        passphrase.as_bytes(),
+        normalized.as_bytes(),
         salt,
         &cost.params()?,
         &mut derived[..],

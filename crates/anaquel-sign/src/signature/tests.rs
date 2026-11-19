@@ -76,6 +76,13 @@ fn a_trusted_comment_must_be_one_plain_line() {
         "tab\there",
         "nul\0byte",
         "\u{7f}",
+        // Line and paragraph separators, and the bidirectional overrides and isolates.
+        "line\u{2028}separator",
+        "paragraph\u{2029}separator",
+        "override\u{202E}reversed",
+        "embedding\u{202A}text",
+        "isolate\u{2066}text",
+        "isolate end\u{2069}",
     ] {
         assert_eq!(
             signer.sign(DATA, bad),
@@ -83,8 +90,29 @@ fn a_trusted_comment_must_be_one_plain_line() {
             "{bad:?}"
         );
     }
-    assert!(signer.sign(DATA, "").is_ok());
-    assert!(signer.sign(DATA, "ñandú 日本").is_ok());
+}
+
+#[test]
+fn text_made_plain_is_always_accepted_as_a_comment_and_keeps_ordinary_text() {
+    let signer = key(1, 1);
+    let nasty = "a\nb\r\tc\u{202E}d\u{2028}e\u{2066}f\u{7f}g";
+    let plain = plain_comment_text(nasty);
+    assert_eq!(plain, "abcdefg");
+    assert!(signer.sign(DATA, &plain).is_ok());
+    assert_eq!(
+        plain_comment_text("ñandú 日本 file.json"),
+        "ñandú 日本 file.json"
+    );
+}
+
+#[test]
+fn comments_that_are_empty_or_not_ascii_are_signed_and_verified() {
+    let signer = key(1, 1);
+    for comment in ["", "ñandú 日本", "timestamp:1 file:e\u{301}.json"] {
+        let text = signer.sign(DATA, comment).unwrap();
+        assert!(text.contains(&format!("trusted comment: {comment}\n")));
+        assert_eq!(trusting(&signer).verify(DATA, &text), Ok(()), "{comment:?}");
+    }
 }
 
 #[test]

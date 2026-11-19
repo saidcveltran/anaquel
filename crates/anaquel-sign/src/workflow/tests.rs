@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
+
 use super::*;
 
 const PASSPHRASE: &str = "a long enough passphrase";
@@ -243,17 +246,28 @@ fn signed_setup(name: &str) -> (Scratch, KeygenReport, PathBuf) {
     (scratch, report, manifest)
 }
 
+/// Signs with the pair `keygen_in` made.
+fn sign_with(
+    report: &KeygenReport,
+    manifest: &Path,
+    comment: &str,
+    prompts: &mut Script,
+) -> Result<PathBuf, WorkflowError> {
+    sign_manifest(
+        &report.key_path,
+        &report.public_path,
+        manifest,
+        comment,
+        prompts,
+    )
+}
+
 #[test]
 fn a_manifest_is_signed_and_the_shipped_verifier_accepts_the_result() {
     let (_scratch, report, manifest) = signed_setup("sign");
     let mut prompts = Script::new(&[PASSPHRASE]);
-    let written = sign_manifest(
-        &report.key_path,
-        &manifest,
-        "timestamp:1 file:m",
-        &mut prompts,
-    )
-    .unwrap();
+    let written = sign_with(&report, &manifest, "timestamp:1 file:m", &mut prompts).unwrap();
+    assert_eq!(prompts.asked, 1);
 
     assert_eq!(written, signature_path_for(&manifest));
     assert!(written.ends_with("release-manifest.json.minisig"));
@@ -268,16 +282,142 @@ fn a_wrong_passphrase_signs_nothing() {
     let (scratch, report, manifest) = signed_setup("wrongpass");
     let mut prompts = Script::new(&["not the right passphrase"]);
     assert!(matches!(
-        error_of(sign_manifest(
-            &report.key_path,
-            &manifest,
-            "c",
-            &mut prompts
-        )),
+        error_of(sign_with(&report, &manifest, "c", &mut prompts)),
         WorkflowError::Sign(SignError::WrongPassphraseOrDamaged)
     ));
+    assert_eq!(prompts.asked, 1);
     assert!(!signature_path_for(&manifest).exists());
     assert_eq!(scratch.names().len(), 3);
+}
+
+#[test]
+fn a_private_key_that_is_not_the_expected_one_signs_nothing() {
+    let scratch = Scratch::new("mismatch-key");
+    let active = keygen_in(&scratch, "active");
+    let reserve = keygen_in(&scratch, "reserve");
+    let manifest = scratch.path("release-manifest.json");
+    fs::write(&manifest, MANIFEST).unwrap();
+
+    // The reserve private key with the active public key: opens fine, is the wrong key.
+    let mut prompts = Script::new(&[PASSPHRASE]);
+    let error = error_of(sign_manifest(
+        &reserve.key_path,
+        &active.public_path,
+        &manifest,
+        "c",
+        &mut prompts,
+    ));
+    assert!(
+        matches!(
+            &error,
+            WorkflowError::KeyMismatch { opened, expected }
+                if *opened == reserve.public_key_line && *expected == active.public_key_line
+        ),
+        "{error}"
+    );
+    assert!(!signature_path_for(&manifest).exists());
+
+    // The matching pair still works, for each of the two keys.
+    for pair in [&active, &reserve] {
+        let _ = fs::remove_file(signature_path_for(&manifest));
+        let mut prompts = Script::new(&[PASSPHRASE]);
+        let written = sign_with(pair, &manifest, "c", &mut prompts).unwrap();
+        let signature = fs::read_to_string(written).unwrap();
+        let keys = TrustedKeys::from_base64(&[pair.public_key_line.as_str()]).unwrap();
+        assert!(verify_manifest(MANIFEST.as_bytes(), &signature, &keys).is_ok());
+    }
+}
+
+#[test]
+fn an_unusable_public_key_file_is_refused_before_the_passphrase_is_asked() {
+    let (scratch, report, manifest) = signed_setup("badpublic");
+    let good = fs::read_to_string(&report.public_path).unwrap();
+    let key_line = report.public_key_line.clone();
+    let cases = [
+        String::new(),
+        "just notes\n".to_owned(),
+        "untrusted comment: only a comment\n".to_owned(),
+        "untrusted comment: x\n!!!not base64!!!\n".to_owned(),
+        format!(
+            "untrusted comment: x\n{}\n",
+            &key_line[..key_line.len() - 4]
+        ),
+        format!("{good}extra line\n"),
+        format!("not a comment\n{key_line}\n"),
+    ];
+    let public = scratch.path("other.pub");
+    for text in cases {
+        fs::write(&public, &text).unwrap();
+        let mut prompts = Script::new(&[PASSPHRASE]);
+        let error = error_of(sign_manifest(
+            &report.key_path,
+            &public,
+            &manifest,
+            "c",
+            &mut prompts,
+        ));
+        assert!(
+            matches!(error, WorkflowError::BadPublicKeyFile { .. }),
+            "{text:?}: {error}"
+        );
+        assert_eq!(prompts.asked, 0, "{text:?}");
+    }
+    // Not valid text at all, and a missing file.
+    fs::write(&public, [0xff, 0xfe, 0x00]).unwrap();
+    assert!(matches!(
+        error_of(sign_manifest(
+            &report.key_path,
+            &public,
+            &manifest,
+            "c",
+            &mut Script::new(&[PASSPHRASE])
+        )),
+        WorkflowError::BadPublicKeyFile { .. }
+    ));
+    assert!(matches!(
+        error_of(sign_manifest(
+            &report.key_path,
+            &scratch.path("missing.pub"),
+            &manifest,
+            "c",
+            &mut Script::new(&[PASSPHRASE])
+        )),
+        WorkflowError::Io { .. }
+    ));
+    assert!(!signature_path_for(&manifest).exists());
+}
+
+#[test]
+fn a_file_that_fails_while_being_written_is_removed() {
+    let scratch = Scratch::new("partial");
+    let path = scratch.path("half.key");
+    let error = error_of(create_new_with(&path, true, |file| {
+        file.write_all(b"half of a key")?;
+        Err(io::Error::other("disk full"))
+    }));
+    assert!(matches!(error, WorkflowError::Io { .. }), "{error}");
+    assert!(!path.exists(), "a truncated file was left behind");
+
+    // A successful fill keeps the file.
+    create_new_with(&path, true, |file| file.write_all(b"whole")).unwrap();
+    assert_eq!(fs::read(&path).unwrap(), b"whole");
+}
+
+#[test]
+fn a_sealed_key_that_does_not_open_again_is_caught_before_writing() {
+    let key = SigningKey::generate().unwrap();
+    let other = SigningKey::generate().unwrap();
+    let sealed = key.seal(PASSPHRASE, KdfCost::CHEAPEST).unwrap();
+    assert!(confirm_sealed(&key, &sealed, PASSPHRASE).is_ok());
+    // A different passphrase, and a sealed file of another key, both fail the check.
+    assert!(matches!(
+        confirm_sealed(&key, &sealed, "a different passphrase"),
+        Err(WorkflowError::SealCheckFailed)
+    ));
+    assert!(matches!(
+        confirm_sealed(&other, &sealed, PASSPHRASE),
+        Err(WorkflowError::SealCheckFailed)
+    ));
 }
 
 #[test]
@@ -290,12 +430,7 @@ fn a_manifest_the_program_would_refuse_is_not_signed_and_the_passphrase_is_not_a
     ] {
         fs::write(&manifest, text).unwrap();
         let mut prompts = Script::new(&[PASSPHRASE]);
-        let error = error_of(sign_manifest(
-            &report.key_path,
-            &manifest,
-            "c",
-            &mut prompts,
-        ));
+        let error = error_of(sign_with(&report, &manifest, "c", &mut prompts));
         assert!(
             matches!(error, WorkflowError::ManifestRefused(_)),
             "{text}: {error}"
@@ -312,12 +447,7 @@ fn an_existing_signature_is_never_replaced() {
     fs::write(&signature_path, "old signature").unwrap();
     let mut prompts = Script::new(&[PASSPHRASE]);
     assert!(matches!(
-        error_of(sign_manifest(
-            &report.key_path,
-            &manifest,
-            "c",
-            &mut prompts
-        )),
+        error_of(sign_with(&report, &manifest, "c", &mut prompts)),
         WorkflowError::AlreadyExists(_)
     ));
     assert_eq!(
@@ -330,35 +460,35 @@ fn an_existing_signature_is_never_replaced() {
 #[test]
 fn a_bad_trusted_comment_signs_nothing() {
     let (_scratch, report, manifest) = signed_setup("badcomment");
-    let mut prompts = Script::new(&[PASSPHRASE]);
-    assert!(matches!(
-        error_of(sign_manifest(
-            &report.key_path,
-            &manifest,
-            "two\nlines",
-            &mut prompts
-        )),
-        WorkflowError::Sign(SignError::BadTrustedComment)
-    ));
-    assert!(!signature_path_for(&manifest).exists());
+    for comment in ["two\nlines", "reversed\u{202E}text"] {
+        let mut prompts = Script::new(&[PASSPHRASE]);
+        assert!(matches!(
+            error_of(sign_with(&report, &manifest, comment, &mut prompts)),
+            WorkflowError::Sign(SignError::BadTrustedComment)
+        ));
+        assert!(!signature_path_for(&manifest).exists());
+    }
 }
 
 #[test]
-fn oversized_and_missing_files_are_refused_before_anything_is_read_into_memory() {
+fn oversized_files_are_refused_from_their_size_and_before_any_prompt() {
     let (scratch, report, manifest) = signed_setup("limits");
 
+    // The size is read from the file's metadata; the error reports it exactly, and a
+    // file one byte over the limit is refused while one at the limit is read.
     let big_manifest = scratch.path("big.json");
     fs::write(&big_manifest, vec![b' '; MAX_MANIFEST_BYTES + 1]).unwrap();
     let mut prompts = Script::new(&[PASSPHRASE]);
-    assert!(matches!(
-        error_of(sign_manifest(
-            &report.key_path,
-            &big_manifest,
-            "c",
-            &mut prompts
-        )),
-        WorkflowError::TooLarge { .. }
-    ));
+    let error = error_of(sign_with(&report, &big_manifest, "c", &mut prompts));
+    assert!(
+        matches!(
+            error,
+            WorkflowError::TooLarge { size, limit, .. }
+                if size == MAX_MANIFEST_BYTES as u64 + 1 && limit == MAX_MANIFEST_BYTES as u64
+        ),
+        "{error}"
+    );
+    assert_eq!(prompts.asked, 0);
 
     let big_key = scratch.path("big.key");
     fs::write(
@@ -366,56 +496,98 @@ fn oversized_and_missing_files_are_refused_before_anything_is_read_into_memory()
         vec![b'a'; usize::try_from(MAX_KEY_FILE_BYTES).unwrap() + 1],
     )
     .unwrap();
-    assert!(matches!(
-        error_of(sign_manifest(
-            &big_key,
-            &manifest,
-            "c",
-            &mut Script::new(&[PASSPHRASE])
-        )),
-        WorkflowError::TooLarge { .. }
+    let mut prompts = Script::new(&[PASSPHRASE]);
+    let error = error_of(sign_manifest(
+        &big_key,
+        &report.public_path,
+        &manifest,
+        "c",
+        &mut prompts,
     ));
+    assert!(matches!(error, WorkflowError::TooLarge { .. }), "{error}");
+    assert_eq!(prompts.asked, 0);
 
-    for (key, file) in [
-        (scratch.path("missing.key"), manifest.clone()),
-        (report.key_path.clone(), scratch.path("missing.json")),
+    let exact = scratch.path("exact.bin");
+    fs::write(&exact, vec![b'x'; 16]).unwrap();
+    assert_eq!(read_limited(&exact, 16).unwrap().len(), 16);
+    assert!(matches!(
+        read_limited(&exact, 15),
+        Err(WorkflowError::TooLarge {
+            size: 16,
+            limit: 15,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn missing_files_are_reported_before_any_prompt() {
+    let (scratch, report, manifest) = signed_setup("missing");
+    for (key, public, file) in [
+        (
+            scratch.path("missing.key"),
+            report.public_path.clone(),
+            manifest.clone(),
+        ),
+        (
+            report.key_path.clone(),
+            report.public_path.clone(),
+            scratch.path("missing.json"),
+        ),
     ] {
-        assert!(matches!(
-            error_of(sign_manifest(
-                &key,
-                &file,
-                "c",
-                &mut Script::new(&[PASSPHRASE])
-            )),
-            WorkflowError::Io { .. }
-        ));
+        let mut prompts = Script::new(&[PASSPHRASE]);
+        let error = error_of(sign_manifest(&key, &public, &file, "c", &mut prompts));
+        assert!(matches!(error, WorkflowError::Io { .. }), "{error}");
+        assert_eq!(prompts.asked, 0, "{key:?} {file:?}");
     }
 }
 
 #[test]
-fn a_file_that_is_not_a_key_is_refused() {
-    let (scratch, _report, manifest) = signed_setup("notkey");
+fn a_file_that_is_not_a_key_is_refused_before_the_passphrase_is_asked() {
+    let (scratch, report, manifest) = signed_setup("notkey");
     let not_a_key = scratch.path("notes.txt");
-    fs::write(&not_a_key, "just notes\n").unwrap();
+    for content in [b"just notes\n".to_vec(), vec![0xff, 0xfe, 0x00]] {
+        fs::write(&not_a_key, &content).unwrap();
+        let mut prompts = Script::new(&[PASSPHRASE]);
+        let error = error_of(sign_manifest(
+            &not_a_key,
+            &report.public_path,
+            &manifest,
+            "c",
+            &mut prompts,
+        ));
+        assert!(
+            matches!(error, WorkflowError::Sign(SignError::KeyFileFormat(_))),
+            "{error}"
+        );
+        assert_eq!(prompts.asked, 0);
+    }
+
+    // A key file asking for more work than allowed is refused the same way.
+    let text = fs::read_to_string(&report.key_path).unwrap();
+    let mut body = STANDARD.decode(text.lines().nth(1).unwrap()).unwrap();
+    body[5] = 40;
+    fs::write(
+        &not_a_key,
+        format!(
+            "{}\n{}\n",
+            text.lines().next().unwrap(),
+            STANDARD.encode(body)
+        ),
+    )
+    .unwrap();
+    let mut prompts = Script::new(&[PASSPHRASE]);
     assert!(matches!(
         error_of(sign_manifest(
             &not_a_key,
+            &report.public_path,
             &manifest,
             "c",
-            &mut Script::new(&[PASSPHRASE])
+            &mut prompts
         )),
-        WorkflowError::Sign(SignError::KeyFileFormat(_))
+        WorkflowError::Sign(SignError::KdfCostRefused)
     ));
-    fs::write(&not_a_key, [0xff, 0xfe, 0x00]).unwrap();
-    assert!(matches!(
-        error_of(sign_manifest(
-            &not_a_key,
-            &manifest,
-            "c",
-            &mut Script::new(&[PASSPHRASE])
-        )),
-        WorkflowError::Sign(SignError::KeyFileFormat(_))
-    ));
+    assert_eq!(prompts.asked, 0);
 }
 
 #[test]

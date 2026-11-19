@@ -19,3 +19,4 @@ pub mod workflow;
 
 pub use error::SignError;
 pub use key::{KdfCost, MIN_PASSPHRASE_CHARS, SigningKey, check_new_passphrase};
+pub use signature::plain_comment_text;

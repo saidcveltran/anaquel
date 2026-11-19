@@ -23,11 +23,19 @@ is built from the repository and is not part of the release archives.
 - `anaquel-sign keygen --name NAME --out DIR` writes `DIR/NAME.key` (private) and `DIR/NAME.pub`.
   Run it once for `active` and once for `reserve`, with different passphrases. It asks for the
   passphrase twice on the terminal (no echo, never an argument or a variable), refuses one shorter
-  than 12 characters, never replaces a file, and prints the key id and the public key line.
-- `anaquel-sign sign --key FILE [--comment TEXT] manifest.json` asks for the passphrase and writes
-  `manifest.json.minisig`. Before signing it checks that the manifest is one the program would
-  accept; after signing it checks the signature with the same verifier the program ships, and it
-  writes nothing if either fails. It never replaces an existing signature file.
+  than 12 characters or with fewer than 6 different ones, never replaces a file, opens the sealed
+  file again with the typed passphrase before writing anything, and prints the key id and the public
+  key line. A passphrase is compared in Unicode normal form C, so an accented letter typed as one
+  character or as two is the same passphrase.
+- `anaquel-sign sign --key FILE --public FILE [--comment TEXT] manifest.json` asks for the
+  passphrase and writes `manifest.json.minisig`. The key file is refused, before the passphrase is
+  asked, when it is not a key file this version reads. The private key must be the one the public
+  key file names, or nothing is signed: a reserve key chosen by mistake cannot sign a release that
+  the active key is expected to sign. Before signing it checks that the manifest is one the program
+  would accept; after signing it checks the signature with the same verifier the program ships,
+  against that public key, and it writes nothing if either fails. It never replaces an existing
+  signature file, and a file that fails while being written is removed. The trusted comment may not
+  hold control characters, line or paragraph separators, or bidirectional overrides.
 
 Public keys and signatures follow minisign, so the independent verifier in `anaquel-update` reads
 what the tool writes, and any other minisign reader can check it:
@@ -42,8 +50,10 @@ than one that says it is different. The file's first line says so. It holds the 
 scrypt cost (N = 2^18, r = 8, p = 1, about 256 MiB), a random salt, the key id, the seed masked with
 a stream derived from the passphrase, and a BLAKE2b-256 checksum keyed by the same derivation. A
 wrong passphrase and a changed file give the same answer, because they cannot be told apart.
-Opening a file refuses scrypt costs outside N 2^10 to 2^22, r up to 16 and p up to 4 before doing
-any work, so a changed file cannot exhaust memory.
+Opening a file refuses scrypt costs outside N 2^10 to 2^22, r up to 16, p up to 4 and 128 * r * N
+of at most 1 GiB before doing any work, so a changed file cannot exhaust memory. A test pins the
+exact bytes this version writes for a fixed key, passphrase and salt, so the format cannot change
+without a new format version.
 
 Where the keys live: the active key on the maintainer's machine, offline except while a release is
 signed; the reserve key on separate media, never loaded on the release machine. The release
@@ -59,8 +69,12 @@ workflow does not sign. The maintainer signs the manifest by hand after the buil
 - `keygen` writes nothing when the two passphrases differ, when the passphrase is short, when the
   name could leave the folder, or when a file already exists; the file writer itself also refuses
   to replace a file that appears after the check. Done.
-- Hand-made mutations were caught: skipping the checksum, signing the data without hashing it and
-  overwriting a file each fail a test.
+- `sign` with a private key that is not the one the public key file names signs nothing, and a
+  public key file that is missing, not text or not a key is refused before any prompt. Done.
+- Hand-made mutations were caught: skipping the checksum, signing the data without hashing it,
+  overwriting a file, skipping the key match, leaving a half-written file, dropping the memory
+  bound, dropping the normalization, dropping the different-characters rule, narrowing the
+  rejected comment characters and skipping the early format check each fail a test.
 - Not done: the terminal prompt itself is not driven by a test (the same code runs against a
   scripted source), and nothing was checked on the private key file permissions on Windows.
 
@@ -71,7 +85,11 @@ workflow does not sign. The maintainer signs the manifest by hand after the buil
 - The tool holds the seed in memory that is zeroed when dropped, but the signing library keeps its
   own copies while it signs; it cannot defend against malware on the maintainer's machine.
 - On Linux the private file is created readable by its owner only. On Windows it keeps the
-  permissions of its folder, so keep it under your own profile.
+  permissions of its folder, so keep it under your own profile; `keygen` prints a reminder there.
+- `sign` does not warn about a manifest that is already expired when it is signed; the program
+  refuses it when it is used, so the cost is a wasted release, not a wrong update.
+- The size limit on the files read is checked from the file's metadata before reading, and the read
+  is bounded as well; the tests check the sizes in the error, not the memory used.
 - A leaked active key is replaced by shipping a version that trusts the reserve key as active and a
   new reserve; a leak of both needs a manual reinstall. The manifest's expiry limits how long a
   stolen key can be used to hide a withdrawal.

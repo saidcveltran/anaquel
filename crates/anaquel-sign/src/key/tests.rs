@@ -73,9 +73,73 @@ fn a_short_passphrase_is_refused_when_sealing_but_not_when_opening() {
     // Characters are counted, not bytes: twelve multi-byte characters are enough.
     assert!(
         key()
-            .seal_with_salt("ñññññññññññð", KdfCost::CHEAPEST, SALT)
+            .seal_with_salt("ñandúçüöäßêô", KdfCost::CHEAPEST, SALT)
             .is_ok()
     );
+}
+
+#[test]
+fn a_passphrase_of_few_different_characters_is_refused() {
+    for repetitive in [
+        "aaaaaaaaaaaa",
+        "abababababab",
+        "abcdeabcdeab",
+        "ñññññññññññð",
+        "            ",
+    ] {
+        assert!(repetitive.chars().count() >= MIN_PASSPHRASE_CHARS);
+        assert_eq!(
+            check_new_passphrase(repetitive),
+            Err(SignError::WeakPassphrase {
+                minimum: MIN_PASSPHRASE_CHARS
+            }),
+            "{repetitive:?}"
+        );
+    }
+    // Exactly six different characters is the least accepted.
+    assert_eq!(check_new_passphrase("abcdefabcdef"), Ok(()));
+}
+
+#[test]
+fn the_same_passphrase_typed_composed_or_decomposed_opens_the_same_key() {
+    // "é" as one character, and as "e" followed by a combining acute accent.
+    let composed = "caf\u{e9} au lait ok";
+    let decomposed = "cafe\u{301} au lait ok";
+    assert_ne!(composed, decomposed);
+    let text = key()
+        .seal_with_salt(composed, KdfCost::CHEAPEST, SALT)
+        .unwrap();
+    for typed in [composed, decomposed] {
+        assert!(SigningKey::open(&text, typed).is_ok(), "{typed:?}");
+    }
+    // The negative case: a different letter is still a different passphrase.
+    assert_eq!(
+        SigningKey::open(&text, "cafe au lait ok").unwrap_err(),
+        SignError::WrongPassphraseOrDamaged
+    );
+}
+
+/// The exact file this version writes for a fixed key, passphrase and salt. If it
+/// changes, every key file ever made stops opening: change `FORMAT_VERSION` instead.
+const PINNED_KEY_FILE: &str = "untrusted comment: anaquel release signing key (passphrase protected; not a minisign secret key file)\nQVFTSwEKAQAAAAEAAAAJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQECAwQFBgcIgluHZ99jTpW4vebA3FaHfC184PRnYOu4t8InIwlfozuIPmMejwZ0Yz+lUQDhvQXNctTBPWmAQ7y4CXony/2YeA==\n";
+
+#[test]
+fn the_key_file_format_is_pinned_byte_for_byte() {
+    assert_eq!(sealed(), PINNED_KEY_FILE);
+    // The layout, read field by field: magic, version, log_n, r, p, salt, key id.
+    let body = body_of(PINNED_KEY_FILE);
+    assert_eq!(&body[..4], b"AQSK");
+    assert_eq!(body[4], 1);
+    assert_eq!(body[5], 10);
+    assert_eq!(&body[6..10], &1u32.to_le_bytes());
+    assert_eq!(&body[10..14], &1u32.to_le_bytes());
+    assert_eq!(&body[14..46], &SALT);
+    assert_eq!(&body[46..54], &KEY_ID);
+    assert_eq!(body.len(), 118);
+    let opened = SigningKey::open(PINNED_KEY_FILE, PASSPHRASE).unwrap();
+    assert_eq!(opened.public_key_line(), key().public_key_line());
+    assert_eq!(opened.key_id_hex(), "0807060504030201");
+    assert_eq!(opened.seed[..], SEED[..]);
 }
 
 #[test]
@@ -171,6 +235,11 @@ fn a_file_cannot_demand_unbounded_work() {
         (18, 8, 0),
         (18, 8, MAX_P + 1),
         (18, 8, u32::MAX),
+        // Each value is within its own bound, but 128 * r * N would exceed 1 GiB.
+        (21, 8, 1),
+        (22, 3, 1),
+        (22, MAX_R, 1),
+        (MAX_LOG_N, MAX_R, MAX_P),
     ] {
         assert_eq!(
             ask(log_n, r, p),
@@ -183,7 +252,15 @@ fn a_file_cannot_demand_unbounded_work() {
 #[test]
 fn the_cost_constructor_keeps_to_the_same_bounds() {
     assert!(KdfCost::new(MIN_LOG_N, 1, 1).is_ok());
-    assert!(KdfCost::new(MAX_LOG_N, MAX_R, MAX_P).is_ok());
+    // 128 * r * N is exactly 1 GiB at the largest accepted combinations.
+    assert!(KdfCost::new(20, 8, MAX_P).is_ok());
+    assert!(KdfCost::new(MAX_LOG_N, 2, 1).is_ok());
+    assert!(KdfCost::new(19, MAX_R, 1).is_ok());
+    assert_eq!(KdfCost::new(21, 8, 1), Err(SignError::KdfCostRefused));
+    assert_eq!(
+        KdfCost::new(MAX_LOG_N, MAX_R, MAX_P),
+        Err(SignError::KdfCostRefused)
+    );
     assert_eq!(
         KdfCost::new(MAX_LOG_N + 1, 1, 1),
         Err(SignError::KdfCostRefused)

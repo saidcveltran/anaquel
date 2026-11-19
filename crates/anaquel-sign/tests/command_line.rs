@@ -61,22 +61,60 @@ fn a_bad_key_name_fails_before_any_prompt_and_writes_nothing() {
 }
 
 #[test]
-fn signing_a_missing_manifest_fails_before_any_prompt() {
+fn signing_a_missing_manifest_fails_on_the_file_and_not_on_a_prompt() {
     let dir = scratch("missing");
     let manifest = dir.join("release-manifest.json");
     let key = dir.join("active.key");
+    let public = dir.join("active.pub");
     let output = run(&[
         "sign",
         "--key",
         &key.to_string_lossy(),
+        "--public",
+        &public.to_string_lossy(),
         &manifest.to_string_lossy(),
     ]);
     assert!(!output.status.success());
-    assert!(
-        stderr(&output).starts_with("error: "),
-        "{}",
-        stderr(&output)
-    );
+    let text = stderr(&output);
+    // The error names the manifest; a failed prompt would say the passphrase could not be read.
+    assert!(text.starts_with("error: "), "{text}");
+    assert!(text.contains("release-manifest.json"), "{text}");
+    assert!(!text.contains("passphrase"), "{text}");
     assert!(!dir.join("release-manifest.json.minisig").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn signing_needs_the_public_key_file() {
+    let dir = scratch("nopublic");
+    let output = run(&[
+        "sign",
+        "--key",
+        &dir.join("active.key").to_string_lossy(),
+        &dir.join("release-manifest.json").to_string_lossy(),
+    ]);
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains("--public"), "{}", stderr(&output));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn keygen_over_an_existing_key_fails_on_the_file_and_not_on_a_prompt() {
+    let dir = scratch("exists");
+    let existing = dir.join("active.key");
+    std::fs::write(&existing, "kept").expect("write the existing file");
+    let output = run(&[
+        "keygen",
+        "--name",
+        "active",
+        "--out",
+        &dir.to_string_lossy(),
+    ]);
+    assert!(!output.status.success());
+    let text = stderr(&output);
+    assert!(text.contains("already exists"), "{text}");
+    assert!(!text.contains("passphrase could not"), "{text}");
+    assert_eq!(std::fs::read_to_string(&existing).expect("file"), "kept");
+    assert!(!dir.join("active.pub").exists());
     let _ = std::fs::remove_dir_all(&dir);
 }

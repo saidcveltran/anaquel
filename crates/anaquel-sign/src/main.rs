@@ -34,6 +34,9 @@ enum Command {
         /// The private key file made by `keygen`.
         #[arg(long)]
         key: PathBuf,
+        /// The matching public key file (`NAME.pub`); signing stops if the private key is another one.
+        #[arg(long)]
+        public: PathBuf,
         /// The trusted comment; defaults to the time and the file name.
         #[arg(long)]
         comment: Option<String>,
@@ -71,14 +74,24 @@ fn run(command: Command) -> Result<(), WorkflowError> {
             let _ = writeln!(out, "public key: {}", report.public_key_line);
             let _ = writeln!(out, "private:    {}", report.key_path.display());
             let _ = writeln!(out, "public:     {}", report.public_path.display());
+            if cfg!(windows) {
+                // No access list is set on Windows; the file has its folder's permissions.
+                let _ = writeln!(
+                    out,
+                    "note: on Windows the private key file keeps the permissions of its folder; \
+                     choose a folder only you can read, and keep a copy offline."
+                );
+            }
         }
         Command::Sign {
             key,
+            public,
             comment,
             manifest,
         } => {
             let comment = comment.unwrap_or_else(|| default_comment(&manifest));
-            let written = workflow::sign_manifest(&key, &manifest, &comment, &mut Terminal)?;
+            let written =
+                workflow::sign_manifest(&key, &public, &manifest, &comment, &mut Terminal)?;
             let _ = writeln!(out, "signature written to {}", written.display());
         }
     }
@@ -93,6 +106,6 @@ fn default_comment(manifest: &std::path::Path) -> String {
         .file_name()
         .map_or_else(|| "manifest".into(), |name| name.to_string_lossy());
     // Control characters would be refused by the signer; keep the default always valid.
-    let file: String = file.chars().filter(|c| !c.is_control()).collect();
+    let file = anaquel_sign::plain_comment_text(&file);
     format!("timestamp:{seconds} file:{file}")
 }

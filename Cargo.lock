@@ -160,6 +160,7 @@ dependencies = [
  "rpassword",
  "scrypt",
  "thiserror",
+ "unicode-normalization",
  "zeroize",
 ]
 

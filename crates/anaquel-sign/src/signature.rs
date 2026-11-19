@@ -15,7 +15,7 @@ impl SigningKey {
     /// # Errors
     /// Returns [`SignError::BadTrustedComment`] when the comment is not one plain line.
     pub fn sign(&self, data: &[u8], trusted_comment: &str) -> Result<String, SignError> {
-        if trusted_comment.chars().any(char::is_control) {
+        if trusted_comment.chars().any(is_unsafe_in_comment) {
             return Err(SignError::BadTrustedComment);
         }
         let pair = self.key_pair()?;
@@ -36,6 +36,20 @@ impl SigningKey {
             STANDARD.encode(global),
         ))
     }
+}
+
+/// Control characters, line and paragraph separators, and the bidirectional
+/// overrides that can make a comment read differently from what it holds.
+fn is_unsafe_in_comment(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{2028}' | '\u{2029}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+}
+
+/// `text` without the characters a trusted comment may not hold, so a value taken from
+/// outside (such as a file name) can be put in a comment that [`SigningKey::sign`] accepts.
+#[must_use]
+pub fn plain_comment_text(text: &str) -> String {
+    text.chars().filter(|c| !is_unsafe_in_comment(*c)).collect()
 }
 
 #[cfg(test)]
