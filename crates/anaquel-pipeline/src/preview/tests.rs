@@ -290,3 +290,164 @@ fn the_files_the_html_refers_to_are_the_assets_of_the_theme() {
         assert!(html.contains(&format!("/{path}")), "{path} is not linked");
     }
 }
+
+#[test]
+fn a_text_longer_than_the_build_reads_is_refused_before_it_is_parsed() {
+    let s = library("preview-too-long");
+    let limit = usize::try_from(crate::MAX_PAGE_BYTES).unwrap();
+    let preview = preview_page(&s.0, PAGE, &"a".repeat(limit + 1));
+    assert_eq!(errors(&preview.page), [Code::IO]);
+    assert!(
+        preview.page[0]
+            .message
+            .contains("larger than the build reads")
+    );
+    assert!(preview.html.is_none());
+    assert_eq!(preview.url, None);
+    assert_eq!(preview.elsewhere, []);
+    // The same text a byte shorter is a page like any other.
+    let preview = preview_page(&s.0, PAGE, &"a".repeat(limit));
+    assert_eq!(preview.page, []);
+    assert!(preview.html.is_some());
+}
+
+#[test]
+fn a_new_page_that_takes_the_address_of_another_is_an_error_of_the_new_page() {
+    let s = library("preview-duplicate-slug");
+    // The catalog reports the clash on whichever of the two it orders last; either way it exists
+    // only because of this text, so it is the page's and the build would stop on it.
+    let preview = preview_page(
+        &s.0,
+        "volumes/guide/a-dup.md",
+        "---\nslug: setup\n---\n# Dup\n",
+    );
+    assert_eq!(errors(&preview.page), [Code::DUPLICATE_URL]);
+    assert!(preview.html.is_none());
+    assert_eq!(preview.elsewhere, []);
+    // The build agrees.
+    s.put("volumes/guide/a-dup.md", "---\nslug: setup\n---\n# Dup\n");
+    assert!(check(&s.0).report.has_errors());
+}
+
+#[test]
+fn a_clash_that_was_already_on_disk_is_not_blamed_on_the_page() {
+    let s = library("preview-old-clash");
+    s.put("volumes/guide/one.md", "---\nslug: same\n---\n# One\n");
+    s.put("volumes/guide/two.md", "---\nslug: same\n---\n# Two\n");
+    let preview = preview_page(&s.0, PAGE, "# Setup\n");
+    assert_eq!(preview.page, []);
+    assert!(preview.html.is_some());
+    assert_eq!(errors(&preview.elsewhere), [Code::DUPLICATE_URL]);
+}
+
+#[test]
+fn a_file_on_disk_that_cannot_be_read_does_not_stop_its_replacement() {
+    let limit = usize::try_from(crate::MAX_PAGE_BYTES).unwrap();
+    for (name, bytes) in [
+        ("preview-disk-huge", vec![b'a'; limit + 1]),
+        ("preview-disk-binary", vec![0xFF, 0xFE, 0x00]),
+    ] {
+        let s = library(name);
+        fs::write(s.0.join(PAGE), &bytes).unwrap();
+        // The file is unreadable, which `check` reports; the editor holds a text that replaces it.
+        assert!(check(&s.0).report.has_errors(), "{name}");
+        let preview = preview_page(&s.0, PAGE, "# Fixed\n");
+        assert_eq!(preview.page, [], "{name}");
+        assert!(preview.html.unwrap().contains("Fixed"), "{name}");
+        assert_eq!(preview.elsewhere, [], "{name}");
+    }
+}
+
+#[test]
+fn a_name_that_would_change_the_address_is_refused_as_the_build_refuses_it() {
+    let s = library("preview-address-chars");
+    for page in [
+        "volumes/guide/c#.md",
+        "volumes/guide/100%.md",
+        "volumes/guide/folder#/page.md",
+    ] {
+        let preview = preview_page(&s.0, page, "---\nslug: fine\n---\n# X\n");
+        assert_eq!(errors(&preview.page), [Code::IO], "{page}");
+        assert!(preview.html.is_none(), "{page}");
+        s.put(page, "# X\n");
+        assert!(check(&s.0).report.has_errors(), "{page}");
+        fs::remove_file(s.0.join(page)).unwrap();
+    }
+    // `?` cannot be a file name on Windows, so this one is only asked of the preview.
+    let preview = preview_page(&s.0, "volumes/guide/what?.md", "# X\n");
+    assert_eq!(errors(&preview.page), [Code::IO]);
+    assert!(preview.html.is_none());
+}
+
+#[test]
+fn the_folder_of_the_library_is_not_sent_to_the_client() {
+    let s = library("preview-hide-root");
+    let root = s.0.display().to_string();
+    let diagnostics = vec![
+        Diagnostic::error(Code::IO, format!("{root}: access denied")),
+        Diagnostic::error(
+            Code::IO,
+            format!("{}: access denied", root.replace('\\', "/")),
+        )
+        .with_help(format!("look in {root}")),
+    ];
+    let shown = super::prepared(diagnostics, &s.0);
+    assert_eq!(shown.len(), 2);
+    for diagnostic in &shown {
+        assert_eq!(diagnostic.message, "<library>: access denied");
+    }
+    assert!(
+        shown
+            .iter()
+            .filter_map(|d| d.help.as_deref())
+            .all(|h| h == "look in <library>")
+    );
+}
+
+#[test]
+fn a_page_that_is_an_index_or_has_a_capital_extension_is_previewed() {
+    let s = library("preview-index");
+    let index = preview_page(&s.0, "volumes/guide/_index.md", "# A new guide title\n");
+    assert!(index.html.unwrap().contains("A new guide title"));
+    let loud = preview_page(&s.0, "volumes/guide/LOUD.MD", "# Loud\n");
+    assert_eq!(loud.page, []);
+    assert!(loud.html.is_some());
+}
+
+#[test]
+fn two_previews_in_a_row_share_nothing() {
+    let s = library("preview-independent");
+    let first = preview_page(&s.0, PAGE, "# First text\n").html.unwrap();
+    let second = preview_page(&s.0, PAGE, "# Second text\n").html.unwrap();
+    assert!(first.contains("First text") && !first.contains("Second text"));
+    assert!(second.contains("Second text") && !second.contains("First text"));
+    assert_eq!(fs::read_to_string(s.0.join(PAGE)).unwrap(), "# Old setup\n");
+}
+
+#[test]
+fn a_directive_that_does_not_exist_and_raw_html_are_errors_of_the_page() {
+    let s = library("preview-composition-errors");
+    let unknown = preview_page(&s.0, PAGE, "# Setup\n\n:::nonexistent\nbody\n:::\n");
+    assert_eq!(errors(&unknown.page), [Code::DIRECTIVE]);
+    assert!(unknown.html.is_none());
+    let raw = preview_page(&s.0, PAGE, "# Setup\n\n<script>alert(1)</script>\n");
+    assert_eq!(errors(&raw.page), [Code::RAW_HTML]);
+    assert!(raw.html.is_none());
+}
+
+#[test]
+fn the_frames_a_page_embeds_are_reported_for_the_policy_of_the_server() {
+    let s = library("preview-frames");
+    let plain = preview_page(&s.0, PAGE, "# Setup\n");
+    assert_eq!(plain.frame_origins, Vec::<String>::new());
+    let embed = "# Setup\n\n:::embed url=\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\"\n:::\n";
+    let preview = preview_page(&s.0, PAGE, embed);
+    assert_eq!(preview.page, []);
+    assert_eq!(
+        preview.frame_origins.len(),
+        1,
+        "{:?}",
+        preview.frame_origins
+    );
+    assert!(preview.frame_origins[0].starts_with("https://"));
+}

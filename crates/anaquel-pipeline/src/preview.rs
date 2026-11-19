@@ -3,13 +3,19 @@
 //! The preview is the build with one page replaced: the library is read from disk, the text of
 //! the page is swapped for the text the editor holds, the catalog is resolved as `build` resolves
 //! it, and the one page is composed and rendered with the same theme and the same templates. A
-//! page that is saved by hand with that text and then built gives the same HTML, byte for byte;
-//! a test builds both and compares.
+//! page that is saved by hand with that text and then built (with search off, as the preview
+//! renders it) gives the same HTML, byte for byte; a test builds both and compares.
 //!
-//! Only the page is composed, not the library, so the diagnostics of the page come from the
-//! catalog (front matter, links to files that are missing) and from the composition of that page
-//! (directives, raw HTML, links to terms and anchors). The problems of other pages are returned
-//! apart, so the editor can say that the library has errors without blaming this page.
+//! Only the page is composed, not the library, so the problems of the page come from the catalog
+//! (front matter, addresses, terms) and from the composition of that page (links, directives, raw
+//! HTML). A problem that the catalog finds in another page but that only exists because of this
+//! text (two pages that now share an address) belongs to the page too: the catalog is resolved a
+//! second time with the text on disk, and what the new text adds is the page's. The problems that
+//! were already there are returned apart, so the editor can say that the library has errors
+//! without blaming this page.
+//!
+//! The drafts differ from the build on purpose: a draft is not composed by `build`, and is here,
+//! so that the editor can show its problems while it is written.
 
 use std::path::Path;
 
@@ -19,17 +25,19 @@ use anaquel_diagnostics::{Code, Diagnostic, Report, Severity};
 use anaquel_render::Renderer;
 use anaquel_theme::Theme;
 
-use crate::{ENGINE_VERSION, fingerprint_theme_assets, ingest, views};
+use crate::{ENGINE_VERSION, MAX_PAGE_BYTES, fingerprint_theme_assets, ingest, views};
 
 /// What the editor shows beside the text of a page.
 #[derive(Debug)]
 pub struct PagePreview {
-    /// The problems that name this page, sorted. When one is an error there is no HTML.
+    /// The problems of this page, sorted: those that name it and those that only exist because of
+    /// its text. When one is an error there is no HTML.
     pub page: Vec<Diagnostic>,
-    /// The problems of the rest of the library, or of the library itself, sorted. They are the
-    /// ones found while reading the library and resolving its catalog (manifests, front matter,
-    /// duplicate addresses); the links and directives of the other pages are not checked here,
-    /// because only this page is composed. `check` does that.
+    /// The problems of the rest of the library, or of the library itself, that are there with or
+    /// without this text, sorted. They are the ones found while reading the library and resolving
+    /// its catalog (manifests, front matter, duplicate addresses); the links and directives of the
+    /// other pages are not checked here, because only this page is composed. `check` does that.
+    /// Paths on disk in the messages are replaced by `<library>`.
     pub elsewhere: Vec<Diagnostic>,
     /// The page as the site would serve it, or `None` when the page cannot be built.
     pub html: Option<String>,
@@ -38,6 +46,9 @@ pub struct PagePreview {
     /// Whether the front matter marks the page as a draft. A draft is rendered for the editor,
     /// but the build does not emit it.
     pub draft: bool,
+    /// The origins the page embeds frames from, which the site's `Content-Security-Policy` has to
+    /// allow; the server that shows the HTML needs them to answer as the site does.
+    pub frame_origins: Vec<String>,
 }
 
 /// A file of the theme as the site serves it.
@@ -70,7 +81,8 @@ pub fn theme_assets() -> Result<Vec<ThemeAsset>, Diagnostic> {
 /// as if its text were `text`. Nothing is written.
 ///
 /// The page may be one that is not on disk yet, as long as it names a file inside a volume
-/// folder.
+/// folder. A text longer than the build reads ([`MAX_PAGE_BYTES`]) is refused with a diagnostic
+/// before anything is parsed.
 #[must_use]
 pub fn preview_page(root: &Path, page: &str, text: &str) -> PagePreview {
     let mut preview = PagePreview {
@@ -79,21 +91,51 @@ pub fn preview_page(root: &Path, page: &str, text: &str) -> PagePreview {
         html: None,
         url: None,
         draft: false,
+        frame_origins: Vec::new(),
     };
-    let mut report = Report::new();
     let page = match LogicalPath::new(page) {
         Ok(page) => page,
         Err(reason) => {
-            report.push(Diagnostic::error(Code::IO, format!("`{page}`: {reason}")).at(page));
-            return finish(preview, report, page);
+            preview
+                .page
+                .push(refusal(page, &format!("`{page}`: {reason}")));
+            return preview;
         }
     };
-    let Some(mut ingested) = ingest::ingest(root, ENGINE_VERSION, &mut report) else {
-        return finish(preview, report, page.as_str());
+    if u64::try_from(text.len()).map_or(true, |len| len > MAX_PAGE_BYTES) {
+        preview.page.push(
+            refusal(page.as_str(), "the text is larger than the build reads")
+                .with_help(format!("a page may hold at most {MAX_PAGE_BYTES} bytes")),
+        );
+        return preview;
+    }
+
+    let mut ingest_report = Report::new();
+    let Some(mut ingested) = ingest::ingest(root, ENGINE_VERSION, &mut ingest_report) else {
+        preview.elsewhere = prepared(ingest_report.items().to_vec(), root);
+        return preview;
     };
+    // What ingest says about the file at this path is about the copy on disk, which the text of
+    // the editor replaces (a file that is too large, or is not text, is fine once replaced). The
+    // rules about the name are checked again below, on the name itself.
+    let mut elsewhere: Vec<Diagnostic> = ingest_report
+        .items()
+        .iter()
+        .filter(|d| !names(d, &page))
+        .cloned()
+        .collect();
+
+    // The catalog with the page as it is on disk, to tell what the new text adds.
+    let (_, baseline) = Catalog::build(
+        ingested.library.clone(),
+        ingested.shelves.clone(),
+        ingested.volumes.clone(),
+        &headings_of,
+    );
     if let Err(diagnostic) = put_text(&mut ingested.volumes, &page, text) {
-        report.push(diagnostic);
-        return finish(preview, report, page.as_str());
+        preview.page.push(diagnostic);
+        preview.elsewhere = prepared(elsewhere, root);
+        return preview;
     }
     let (catalog, catalog_report) = Catalog::build(
         ingested.library,
@@ -101,47 +143,90 @@ pub fn preview_page(root: &Path, page: &str, text: &str) -> PagePreview {
         ingested.volumes,
         &headings_of,
     );
-    report.extend(catalog_report);
+    let mut own = Vec::new();
+    for diagnostic in catalog_report.items() {
+        if names(diagnostic, &page) || !baseline.items().contains(diagnostic) {
+            own.push(diagnostic.clone());
+        } else {
+            elsewhere.push(diagnostic.clone());
+        }
+    }
 
-    // The catalog leaves out a page it cannot use; its problems are already in the report.
+    // The catalog leaves out a page it cannot use; its problems are already in `own`.
     if let Some(entry) = catalog.entries().iter().find(|e| e.source == page) {
         preview.url = Some(entry.url.clone());
         preview.draft = entry.draft;
         let mut composed = compose(&catalog, entry);
-        report.extend(std::mem::take(&mut composed.report));
-        let page_has_errors = report
-            .items()
-            .iter()
-            .any(|d| d.severity == Severity::Error && d.path.as_deref() == Some(page.as_str()));
-        if !page_has_errors {
+        own.extend(std::mem::take(&mut composed.report).items().iter().cloned());
+        if !own.iter().any(|d| d.severity == Severity::Error) {
             let html = Theme::folio().and_then(|theme| {
                 let renderer = Renderer::new(&theme)?;
                 let (_, asset_urls) = fingerprint_theme_assets(&theme);
                 let site = views::site_view(&catalog, false);
-                let view =
-                    views::page_view(&catalog, entry, composed.html.clone(), &composed.plain);
+                let view = views::page_view(
+                    &catalog,
+                    entry,
+                    std::mem::take(&mut composed.html),
+                    &composed.plain,
+                );
                 renderer.render("page.html", &site, &view, &asset_urls)
             });
             match html {
                 Ok(html) => preview.html = Some(html),
-                Err(diagnostic) => report.push(diagnostic.at(page.as_str())),
+                Err(diagnostic) => own.push(diagnostic.at(page.as_str())),
             }
         }
+        preview.frame_origins = std::mem::take(&mut composed.embed_origins);
+        preview.frame_origins.sort();
+        preview.frame_origins.dedup();
     }
-    finish(preview, report, page.as_str())
+    preview.page = sorted(own);
+    preview.elsewhere = prepared(elsewhere, root);
+    preview
 }
 
-/// Sorts the report into what names the page and what does not.
-fn finish(mut preview: PagePreview, mut report: Report, page: &str) -> PagePreview {
-    report.sort();
-    for diagnostic in report.items() {
-        if diagnostic.path.as_deref() == Some(page) {
-            preview.page.push(diagnostic.clone());
-        } else {
-            preview.elsewhere.push(diagnostic.clone());
-        }
+/// An error about the request itself, at the page.
+fn refusal(page: &str, message: &str) -> Diagnostic {
+    Diagnostic::error(Code::IO, message).at(page)
+}
+
+/// Whether a diagnostic names the page. Ingest writes paths as the disk spells them, so both sides
+/// are compared in Unicode normal form C, which is how the build keeps every path.
+fn names(diagnostic: &Diagnostic, page: &LogicalPath) -> bool {
+    diagnostic
+        .path
+        .as_deref()
+        .and_then(|path| LogicalPath::new(path).ok())
+        .is_some_and(|path| path == *page)
+}
+
+fn sorted(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let mut report = Report::new();
+    for diagnostic in diagnostics {
+        report.push(diagnostic);
     }
-    preview
+    report.sort();
+    report.items().to_vec()
+}
+
+/// Sorts the diagnostics of the rest of the library and keeps the folder of the library out of
+/// them, since they go to a web page.
+fn prepared(diagnostics: Vec<Diagnostic>, root: &Path) -> Vec<Diagnostic> {
+    let spelled = root.display().to_string();
+    let forward = spelled.replace('\\', "/");
+    let hide = |text: &str| {
+        text.replace(&spelled, "<library>")
+            .replace(&forward, "<library>")
+    };
+    let hidden = diagnostics
+        .into_iter()
+        .map(|mut diagnostic| {
+            diagnostic.message = hide(&diagnostic.message);
+            diagnostic.help = diagnostic.help.as_deref().map(hide);
+            diagnostic
+        })
+        .collect();
+    sorted(hidden)
 }
 
 /// Puts `text` in the place of the page in its volume, or adds the page to the volume when the
@@ -162,19 +247,29 @@ fn put_text(
         else {
             continue;
         };
-        let inside = LogicalPath::new(inside).map_err(|reason| {
-            Diagnostic::error(Code::IO, format!("`{}`: {reason}", page.as_str())).at(page.as_str())
-        })?;
+        let inside = LogicalPath::new(inside)
+            .map_err(|reason| refusal(page.as_str(), &format!("`{}`: {reason}", page.as_str())))?;
         // The build reads Markdown files only, and skips every name that starts with a dot.
         if !inside.as_str().to_ascii_lowercase().ends_with(".md")
             || inside.as_str().split('/').any(|name| name.starts_with('.'))
         {
-            return Err(Diagnostic::error(
-                Code::IO,
-                format!("`{}` is not a page the build reads", page.as_str()),
+            return Err(refusal(
+                page.as_str(),
+                &format!("`{}` is not a page the build reads", page.as_str()),
             )
-            .at(page.as_str())
             .with_help("a page is a `.md` file whose folders and name do not start with a dot"));
+        }
+        // These would end or change the address of the page, and the build refuses the file.
+        if let Some(bad) = inside
+            .as_str()
+            .chars()
+            .find(|c| matches!(c, '#' | '%' | '?'))
+        {
+            return Err(refusal(
+                page.as_str(),
+                &format!("`{bad}` in a file or folder name would end or change its address"),
+            )
+            .with_help("rename it; letters, digits, spaces and `- _ . ( ) , ;` are fine"));
         }
         match volume.pages.iter_mut().find(|p| p.path == inside) {
             Some(existing) => existing.text = text,
@@ -182,14 +277,13 @@ fn put_text(
         }
         return Ok(());
     }
-    Err(Diagnostic::error(
-        Code::IO,
-        format!(
+    Err(refusal(
+        page.as_str(),
+        &format!(
             "`{}` is not inside a volume folder of the library",
             page.as_str()
         ),
     )
-    .at(page.as_str())
     .with_help("a page lives in `volumes/NAME/` or in `shelves/SHELF/volumes/NAME/`"))
 }
 

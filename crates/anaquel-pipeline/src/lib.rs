@@ -8,6 +8,7 @@ mod preview;
 mod relocate;
 mod views;
 
+pub use ingest::MAX_PAGE_BYTES;
 pub use preview::{PagePreview, ThemeAsset, preview_page, theme_assets};
 pub use relocate::{RelocateOptions, RelocateOutcome, relocate};
 
