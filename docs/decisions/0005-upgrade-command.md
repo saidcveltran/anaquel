@@ -3,8 +3,8 @@
 Status: accepted as a design (2026-11-19), with the questions at the end settled by the
 maintainer. Built so far: `anaquel-update` (the trust core), the two release public keys,
 `anaquel-sign manifest` and, in `anaquel-upgrade`, the archive (`.tar.gz` and `.zip`), swap and
-state pieces. The command
-itself and the network client are not built.
+state pieces, and the download client with its address policy (not yet linked into the program).
+The command itself is not built.
 
 ## Context
 
@@ -113,11 +113,13 @@ Revised by the maintainer later on 2026-11-19, with the reasons:
    archives and no tar archive, and Scoop's page does not name `.tar.gz`, so Windows keeps `.zip`
    and the library is added at a version more than two weeks old. `anaquel-upgrade` reads both.
 4. **The HTTPS client is `ureq` with `rustls` and the `ring` provider.** Everything in Rust, with
-   no dependence on `curl` or PowerShell. Costs stated when it was chosen: `deny.toml` admits
-   neither the licence of the root certificate bundle (CDLA-Permissive-2.0) nor the one of `ring`,
-   so the licence policy is extended for those two crates by name and not in general; the binary
-   grows by a few MiB; `ring` needs a C compiler or assembler on Windows ARM64 and musl, which CI
-   has not yet shown.
+   no dependence on `curl` or PowerShell. Costs stated when it was chosen: `deny.toml` does not
+   admit the licence of the root certificate bundle (CDLA-Permissive-2.0), so the licence policy
+   is extended for that one crate by name and not in general; the binary grows by a few MiB;
+   `ring` needs a C compiler or assembler on Windows ARM64 and musl, which CI has not yet shown.
+   Corrected when the client was built: the choice text first said `ring` also needed a licence
+   exception. Its manifest declares `Apache-2.0 AND ISC`, and both are already admitted, so it
+   needs none.
 
 ## Order of work
 

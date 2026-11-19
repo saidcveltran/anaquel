@@ -59,6 +59,10 @@ getrandom = "=0.4.3"
 rpassword = "=7.5.5"
 scrypt = { version = "=0.12.0", default-features = false }
 zeroize = "=1.9.2"
+# Blocking HTTPS client for `anaquel upgrade`. The newest release more than two weeks old
+# (2026-11-02). The `rustls` feature brings the `ring` crypto provider and the root certificates
+# bundled in `webpki-roots`, so nothing depends on the certificate store of the system.
+ureq = { version = "=3.5.1", default-features = false, features = ["rustls"] }
 # The newest release that is more than two weeks old (2026-11-03); the crate publishes almost
 # daily. Only the deflate method is built in: no encryption, no bzip2, lzma, zstd or xz.
 zip = { version = "=9.3.0", default-features = false, features = ["deflate-flate2"] }
