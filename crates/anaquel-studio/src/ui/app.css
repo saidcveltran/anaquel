@@ -1,0 +1,185 @@
+:root {
+  color-scheme: light dark;
+  --ground: #fbfaf7;
+  --panel: #ffffff;
+  --ink: #1d1b18;
+  --muted: #6a645b;
+  --line: #d9d4c9;
+  --accent: #8a4b14;
+  --accent-ink: #ffffff;
+  --error: #a4262c;
+  --warning: #8a5a00;
+  --info: #1f5f8b;
+  --ok: #2d6a2d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #161513;
+    --panel: #1f1d1a;
+    --ink: #ece8df;
+    --muted: #a39d91;
+    --line: #38342d;
+    --accent: #e0a15f;
+    --accent-ink: #161513;
+    --error: #ff8a8f;
+    --warning: #e6b450;
+    --info: #7ab8e6;
+    --ok: #8fd48f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+h1 { margin: 0; font-size: 1.1rem; }
+h2 { margin: 0 0 0.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+.language { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+
+@media (max-width: 1000px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.pages, .editor, .preview {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+input, select, button, textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+input[type="search"] { width: 100%; padding: 0.35rem 0.5rem; margin-bottom: 0.5rem; }
+select { padding: 0.3rem 0.4rem; max-width: 100%; }
+
+button {
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+button.primary, #save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+button:disabled { opacity: 0.5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.page-list { max-height: 70vh; overflow: auto; }
+.group { margin: 0.5rem 0 0.15rem; font-size: 0.8rem; color: var(--muted); }
+
+.page {
+  display: block;
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+
+.page[aria-current="true"] { background: var(--ground); border-color: var(--accent); }
+.page .badge { margin-left: 0.4rem; font-size: 0.72rem; color: var(--muted); }
+.page.unavailable { color: var(--muted); }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.path { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.85rem; color: var(--muted); }
+.state { min-width: 5rem; color: var(--muted); font-size: 0.85rem; }
+.state.dirty { color: var(--warning); }
+.state.saved { color: var(--ok); }
+.state.failed { color: var(--error); }
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 60vh;
+  padding: 0.6rem;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+iframe {
+  display: block;
+  width: 100%;
+  min-height: 60vh;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.diagnostics { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.diagnostics li { margin: 0 0 0.35rem; padding: 0.35rem 0.5rem; border-left: 3px solid var(--info); background: var(--ground); overflow-wrap: anywhere; }
+.diagnostics li.error { border-color: var(--error); }
+.diagnostics li.warning { border-color: var(--warning); }
+.diagnostics .code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.8rem; margin-right: 0.4rem; }
+.diagnostics .help { display: block; color: var(--muted); font-size: 0.85rem; }
+
+.problems { margin-top: 0.75rem; font-size: 0.85rem; }
+.problems ul { margin: 0.4rem 0 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
+
+.empty, .note { color: var(--muted); }
+.note { margin: 0 0 0.5rem; font-size: 0.85rem; }
+
+.notice {
+  margin: 0.5rem 1rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+
+.choice {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  width: min(32rem, calc(100% - 2rem));
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+.choice p { margin: 0 0 0.6rem; }
+.buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }

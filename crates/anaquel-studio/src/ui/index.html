@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anaquel studio</title>
+<link rel="stylesheet" href="/__studio/app.css">
+<script src="/__studio/app.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <h1 data-text="app.title">Anaquel studio</h1>
+  <label class="language">
+    <span data-text="language.label">Language</span>
+    <select id="language">
+      <option value="en">English</option>
+      <option value="es">Español</option>
+    </select>
+  </label>
+</header>
+
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+<main class="layout">
+  <nav class="pages" aria-labelledby="pages-heading">
+    <h2 id="pages-heading" data-text="pages.heading">Pages</h2>
+    <input id="filter" type="search" autocomplete="off" data-attribute="placeholder:pages.filter">
+    <div id="page-list" class="page-list"></div>
+    <details id="problems" class="problems" hidden>
+      <summary data-text="pages.problems">Problems found while listing</summary>
+      <ul id="problem-list"></ul>
+    </details>
+  </nav>
+
+  <section class="editor" aria-labelledby="editor-heading">
+    <h2 id="editor-heading" data-text="editor.heading">Text</h2>
+    <p id="editor-empty" class="empty" data-text="editor.empty">Choose a page on the left.</p>
+    <div id="editor-body" hidden>
+      <div class="toolbar">
+        <span id="current-path" class="path"></span>
+        <select id="directive" data-attribute="aria-label:editor.directive">
+          <option value="" data-text="editor.directive">Insert a directive</option>
+        </select>
+        <button id="save" type="button" data-text="editor.save">Save</button>
+        <span id="state" class="state"></span>
+      </div>
+      <textarea id="text" spellcheck="false" wrap="off" data-attribute="aria-label:editor.heading"></textarea>
+      <ul id="page-diagnostics" class="diagnostics"></ul>
+    </div>
+  </section>
+
+  <section class="preview" aria-labelledby="preview-heading">
+    <h2 id="preview-heading" data-text="preview.heading">Preview</h2>
+    <p id="preview-note" class="note" hidden></p>
+    <iframe id="frame" sandbox="allow-same-origin" data-attribute="title:preview.heading"></iframe>
+    <details id="elsewhere" class="problems" hidden>
+      <summary data-text="preview.elsewhere">Problems in the rest of the library</summary>
+      <ul id="elsewhere-list" class="diagnostics"></ul>
+    </details>
+  </section>
+</main>
+
+<div id="choice" class="choice" role="alertdialog" aria-live="assertive" hidden>
+  <p id="choice-message"></p>
+  <div id="choice-buttons" class="buttons"></div>
+</div>
+</body>
+</html>
