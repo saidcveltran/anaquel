@@ -26,6 +26,13 @@ fn the_embedded_lines_are_the_two_keys_the_maintainer_made() {
 }
 
 #[test]
+fn the_download_prefix_is_the_projects_https_release_address() {
+    assert!(RELEASE_DOWNLOAD_PREFIX.starts_with("https://github.com/saidcveltran/anaquel/"));
+    assert!(RELEASE_DOWNLOAD_PREFIX.ends_with("/releases/download/"));
+    assert!(!RELEASE_DOWNLOAD_PREFIX.contains(char::is_whitespace));
+}
+
+#[test]
 fn the_two_keys_are_different_and_both_load() {
     assert_ne!(ACTIVE_RELEASE_KEY, RESERVE_RELEASE_KEY);
     assert!(TrustedKeys::release().is_ok());

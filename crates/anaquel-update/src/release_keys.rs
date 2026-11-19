@@ -15,6 +15,11 @@ pub const ACTIVE_RELEASE_KEY: &str = "RWTTHM3AC388/uTQuW2oB0+fiNwNCXeykFXfJhgTwp
 /// Base64 line of the reserve key `37BA8498688F09C1`, kept offline for key replacement.
 pub const RESERVE_RELEASE_KEY: &str = "RWTBCY9omIS6N4YCLMH7Bh/bduRHJmpjhEpgjMAYzVClfbREHnib69RQ";
 
+/// The address every release archive must be under, and the only prefix a published
+/// manifest may use for a download. A release asset is `{prefix}vX.Y.Z/anaquel-TARGET.EXT`.
+pub const RELEASE_DOWNLOAD_PREFIX: &str =
+    "https://github.com/saidcveltran/anaquel/releases/download/";
+
 impl TrustedKeys {
     /// The keys a published release is checked against: the active key, then the reserve.
     ///

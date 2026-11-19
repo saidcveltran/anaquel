@@ -270,7 +270,7 @@ fn io_error(path: &Path) -> impl FnOnce(io::Error) -> WorkflowError + '_ {
 }
 
 /// Reads a file after checking its size, so a wrong path cannot fill memory.
-fn read_limited(path: &Path, limit: u64) -> Result<Vec<u8>, WorkflowError> {
+pub(crate) fn read_limited(path: &Path, limit: u64) -> Result<Vec<u8>, WorkflowError> {
     let file = File::open(path).map_err(io_error(path))?;
     let size = file.metadata().map_err(io_error(path))?.len();
     if size > limit {
@@ -289,7 +289,7 @@ fn read_limited(path: &Path, limit: u64) -> Result<Vec<u8>, WorkflowError> {
 
 /// Creates `path`, failing if it exists. A private file is readable by its owner only
 /// where the system supports that; on Windows it keeps the permissions of its folder.
-fn write_new(path: &Path, bytes: &[u8], private: bool) -> Result<(), WorkflowError> {
+pub(crate) fn write_new(path: &Path, bytes: &[u8], private: bool) -> Result<(), WorkflowError> {
     create_new_with(path, private, |file| {
         file.write_all(bytes).and_then(|()| file.sync_all())
     })
