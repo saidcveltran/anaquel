@@ -6,7 +6,7 @@ use anaquel_compose::headings_of;
 use anaquel_diagnostics::{Code, Diagnostic, Report, Severity};
 
 use super::destination;
-use super::disk::{Change, Disk, apply, mixed_line_endings};
+use super::disk::{Change, Disk, MAX_CHANGES, apply, mixed_line_endings, within_limit};
 use super::text::{RewriteScope, rewrite_links, set_aliases};
 use super::{
     FileMove, RelocateOptions, clone_ingested, entries_by_source, folder_of, locate, moved_sources,
@@ -92,6 +92,16 @@ pub(super) fn run(
         return Finish::default();
     }
 
+    if !within_limit(items.len() + rewritten_pages(&pages.texts, &moved).len()) {
+        report.push(Diagnostic::error(
+            Code::IO,
+            format!(
+                "a move may hold at most {MAX_CHANGES} files, counting the pages whose links change"
+            ),
+        ));
+        return Finish::default();
+    }
+
     describe(plan, &items, &ingested, &moved, &addresses, &old_entries);
     plan.extend(pages.lines);
     if options.dry_run {
@@ -149,14 +159,9 @@ fn find_addresses(
     Some(addresses)
 }
 
-fn rewrite_pages(
-    ingested: &Ingested,
-    base: &Analysis,
-    moved: &HashMap<String, String>,
-    addresses: &HashMap<String, Address>,
-    report: &mut Report,
-) -> Option<Pages> {
-    let originals: HashMap<String, &str> = ingested
+/// The text the library read for every page, by the page's path from the root.
+fn page_texts(ingested: &Ingested) -> HashMap<String, &str> {
+    ingested
         .volumes
         .iter()
         .flat_map(|v| {
@@ -167,7 +172,17 @@ fn rewrite_pages(
                 )
             })
         })
-        .collect();
+        .collect()
+}
+
+fn rewrite_pages(
+    ingested: &Ingested,
+    base: &Analysis,
+    moved: &HashMap<String, String>,
+    addresses: &HashMap<String, Address>,
+    report: &mut Report,
+) -> Option<Pages> {
+    let originals = page_texts(ingested);
     let mut pages = Pages {
         texts: HashMap::new(),
         lines: Vec::new(),
@@ -371,6 +386,17 @@ fn emptied_folders(ingested: &Ingested, items: &[FileMove]) -> Vec<String> {
     folders
 }
 
+/// The pages that only change their links, in a fixed order: those with a new text that no item
+/// of the move takes along.
+fn rewritten_pages<'a>(
+    texts: &'a HashMap<String, String>,
+    moved: &HashMap<String, String>,
+) -> Vec<&'a String> {
+    let mut pages: Vec<&String> = texts.keys().filter(|k| !moved.contains_key(*k)).collect();
+    pages.sort();
+    pages
+}
+
 fn write(
     options: &RelocateOptions,
     disk: &mut dyn Disk,
@@ -379,28 +405,39 @@ fn write(
     texts: &HashMap<String, String>,
     report: &mut Report,
 ) -> Finish {
+    let read_by_library = page_texts(ingested);
+    // What the library read for each file that gets a new text, so the write can tell if the file
+    // changed since.
+    let mut expected: HashMap<PathBuf, String> = HashMap::new();
     let mut changes: Vec<Change> = Vec::new();
     for item in items {
         let old_lib = lib_path(ingested, item.from_volume, &item.from_rel);
+        let text = texts.get(&old_lib).cloned().filter(|_| item.page);
+        if text.is_some()
+            && let Some(read) = read_by_library.get(&old_lib)
+        {
+            expected.insert(options.root.join(&old_lib), (*read).to_owned());
+        }
         changes.push(Change::Move {
             from: options.root.join(&old_lib),
             to: options.root.join(&moved[&old_lib]),
-            text: texts.get(&old_lib).cloned().filter(|_| item.page),
+            text,
         });
     }
     let emptied: Vec<PathBuf> = emptied_folders(ingested, items)
         .iter()
         .map(|folder| options.root.join(folder))
         .collect();
-    let mut rewrites: Vec<&String> = texts.keys().filter(|k| !moved.contains_key(*k)).collect();
-    rewrites.sort();
-    for old_lib in rewrites {
+    for old_lib in rewritten_pages(texts, moved) {
+        if let Some(read) = read_by_library.get(old_lib) {
+            expected.insert(options.root.join(old_lib), (*read).to_owned());
+        }
         changes.push(Change::Rewrite {
             path: options.root.join(old_lib),
             text: texts[old_lib].clone(),
         });
     }
-    match apply(disk, &changes, &emptied) {
+    match apply(disk, &changes, &emptied, &expected) {
         Ok(leftovers) => {
             if !leftovers.is_empty() {
                 let names: Vec<String> = leftovers
@@ -430,9 +467,12 @@ fn write(
                     format!("the move stopped: {}", failure.message),
                 )
                 .with_help(if failure.restored {
-                    "every file is back as it was"
+                    "every file is back as it was".to_owned()
                 } else {
-                    "some files could not be put back; look for files named `.anaquel-held-NNNNNN` or `.anaquel-staged-NNNNNN` and check the folder against your version control or a backup"
+                    format!(
+                        "some files could not be put back, and none was lost: {}; check the folder against your version control or a backup",
+                        failure.unrestored.join("; ")
+                    )
                 }),
             );
             Finish {

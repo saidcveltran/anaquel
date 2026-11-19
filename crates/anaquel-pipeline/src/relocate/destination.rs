@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use anaquel_diagnostics::{Code, Report};
 use anaquel_schema::{parse_page, url_segment_problem};
 
-use super::disk::TEMPORARY_EXTRA;
+use super::disk::{HELD_PREFIX, STAGED_PREFIX, TEMPORARY_EXTRA};
 use super::{FileMove, SECTION_FILE, folder_of, refuse};
 use crate::ingest::Ingested;
 
@@ -52,6 +53,9 @@ pub(super) fn check(
     report: &mut Report,
 ) -> bool {
     let volumes = &ingested.volumes;
+    if !leftovers(root, report) {
+        return false;
+    }
     let leaving_lib: HashSet<String> = items
         .iter()
         .map(|i| format!("{}/{}", folder_of(&volumes[i.from_volume]), i.from_rel))
@@ -186,15 +190,59 @@ fn symbolic_links(root: &Path, new_lib: &str, report: &mut Report) -> bool {
 /// The names found in each folder already looked at, so a move of many files lists a folder once.
 type Listings = HashMap<PathBuf, Vec<String>>;
 
-fn names_in(folder: &Path) -> Vec<String> {
-    fs::read_dir(folder)
-        .map(|entries| {
-            entries
-                .flatten()
-                .map(|entry| entry.file_name().to_string_lossy().into_owned())
-                .collect()
-        })
-        .unwrap_or_default()
+/// The names in a folder. A folder that does not exist holds none; a folder that cannot be read
+/// is an error, because nothing can be said about what is in it.
+pub(super) fn names_in(folder: &Path) -> io::Result<Vec<String>> {
+    match fs::read_dir(folder) {
+        Ok(entries) => entries
+            .map(|entry| entry.map(|e| e.file_name().to_string_lossy().into_owned()))
+            .collect(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(error) => Err(error),
+    }
+}
+
+/// Refuses a library that holds a file left by an earlier move that stopped half way: such a name
+/// could be taken by the next one, which would then stop in the middle of its write.
+pub(super) fn leftovers(root: &Path, report: &mut Report) -> bool {
+    let mut found: Vec<PathBuf> = Vec::new();
+    let mut pending: Vec<PathBuf> = ["volumes", "shelves"]
+        .iter()
+        .map(|top| root.join(top))
+        .collect();
+    while let Some(folder) = pending.pop() {
+        let Ok(entries) = fs::read_dir(&folder) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                pending.push(entry.path());
+            } else if name.starts_with(HELD_PREFIX) || name.starts_with(STAGED_PREFIX) {
+                found.push(entry.path());
+            }
+        }
+    }
+    found.sort();
+    for path in &found {
+        let shown = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        refuse(
+            report,
+            Code::RELOCATE_TAKEN,
+            format!(
+                "`{shown}` was left by an earlier move that stopped; it may hold a page or its old text. Look at it, then delete it"
+            ),
+            &shown,
+        );
+    }
+    found.is_empty()
 }
 
 /// Walks the destination down from the root of the library and compares each segment with what
@@ -215,9 +263,23 @@ fn on_disk(
     for (index, segment) in segments.iter().enumerate() {
         let last = index + 1 == segments.len();
         let lower = segment.to_lowercase();
-        let names = listings
-            .entry(folder.clone())
-            .or_insert_with_key(|key| names_in(key));
+        if !listings.contains_key(&folder) {
+            match names_in(&folder) {
+                Ok(found) => {
+                    listings.insert(folder.clone(), found);
+                }
+                Err(error) => {
+                    refuse(
+                        report,
+                        Code::RELOCATE_DESTINATION,
+                        format!("the folder `{}` cannot be read: {error}", folder.display()),
+                        new_lib,
+                    );
+                    return false;
+                }
+            }
+        }
+        let names = &listings[&folder];
         let lib_of = |name: &str| {
             if parent_lib.is_empty() {
                 name.to_owned()

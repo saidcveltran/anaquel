@@ -43,17 +43,22 @@ The plan, in order:
 3. Rewrite every inline link and reference definition that resolves to the old file. A link
    that cannot be rewritten stops the command before anything is written.
 4. Write through temporary files and renames; on a failure, restore what was already moved.
-   The order is fixed. First every moving file is renamed to a held name in the folder it
-   leaves (`.anaquel-held-NNNNNN`) and the new text of a page whose links change is written to a
-   staged name beside its destination (`.anaquel-staged-NNNNNN`, created with `create_new`, so a
-   name that is taken, a planted link included, stops the move instead of being written through).
-   Then every held or staged file is renamed to its destination, and the pages outside the move
-   whose links change are rewritten the same way. Only when all of that succeeded are the
-   originals of rewritten pages removed and the emptied folders deleted. Every source is vacated
-   before any destination is filled, so files that trade places, chains of moves and a rename
-   that only changes case need no special case. `NNNNNN` is the position of the change in the
-   plan, so no two files of one move share a temporary name, and a name never depends on the
-   length of the file name.
+   The order is fixed. First the new text of a page whose links change is written to a staged name beside its source
+   (`.anaquel-staged-NNNNNN`, created with `create_new`, so a name that is taken, a planted link
+   included, stops the move instead of being written through, and given the permissions of the
+   file it replaces), and every moving file is renamed to a held name in the folder it leaves
+   (`.anaquel-held-NNNNNN`). Then, with every source vacated, the folders a destination needs
+   are made and every held or staged file is renamed to its destination; the pages outside the
+   move whose links change are rewritten the same way, staged beside the page. Only when all of
+   that succeeded are the originals of rewritten pages removed and the emptied folders deleted.
+   Every source is vacated before any destination is filled, so files that trade places, chains
+   of moves, a rename that only changes case and a file that takes the place of a folder the
+   move empties need no special case. Before each rewrite the file is read again and compared
+   with the text the library read; a file that changed in between stops the move. `NNNNNN` is
+   the position of the change in the plan, so no two files of one move share a temporary name,
+   and a name never depends on the length of the file name. If a step fails, the steps already
+   done are undone in reverse order; each one that cannot be undone is named in the report with
+   the place the file belongs in, and nothing is called restored while a temporary file is left.
 
 Special cases:
 
@@ -79,6 +84,8 @@ Special cases:
 | A destination segment that starts with `.`, ends with a space or a dot, or holds `< > : " \| ? * \ # %` | `AQ0902`, for every segment and for `slug` pages and files too |
 | A destination folder that differs from an existing folder only by letter case | `AQ0902`; a case-insensitive disk cannot tell them apart |
 | A destination that passes through a symbolic link | `AQ0902` |
+| A folder of the library cannot be listed, or holds a `.anaquel-held-` or `.anaquel-staged-` file left by an earlier move | `AQ0902` for the unreadable folder; `AQ0903` naming the leftover; nothing is written |
+| A move would need more than 999 999 changes | `AQ0902` |
 | The address changes only by letter case | `AQ0902` |
 | `<to>` is already a page, or an alias owned by another page | `AQ0903`, naming the owner |
 | Swap or chain inside one command | `AQ0905` |
@@ -117,7 +124,15 @@ found by the final build keeps `AQ0301`.
 - A crash in the middle of a write (power loss, a killed process) is not undone: there is no
   journal. A failed write is undone; a crash can leave files named `.anaquel-held-NNNNNN` or
   `.anaquel-staged-NNNNNN` next to the old and the new places, and a later move
-  that needs the same name stops until the file is deleted.
+  that needs the same name stops until the file is deleted: the check before the write finds
+  such a file anywhere under `volumes/` and `shelves/` and names it.
+- Between the check of a destination and the rename a file could be created there by another
+  program, and the rename would replace it. Closing that gap needs a rename that refuses to
+  replace (`renameat2` with `RENAME_NOREPLACE` on Linux, `MoveFileEx` without
+  `MOVEFILE_REPLACE_EXISTING` on Windows); it is not used yet.
+- Hard links, access control lists and extended attributes of a rewritten or moved file are not
+  preserved; the permission bits are.
+- A page that Windows keeps read-only cannot be rewritten; the move is undone.
 - A move that succeeded but could not remove an original it held (a program has it open on
   Windows) says so with a warning and names the files; the move is not undone.
 - Folders the move empties are removed, a folder that still holds a hidden file stays, and the

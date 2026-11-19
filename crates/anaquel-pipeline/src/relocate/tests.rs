@@ -1,19 +1,29 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anaquel_diagnostics::Code;
 
-use super::destination::{file_name_problem, windows_device};
+use super::destination::{file_name_problem, names_in, windows_device};
 use super::disk::{
-    Change, Disk, MAX_CHANGES, POSITION_DIGITS, RealDisk, TEMPORARY_EXTRA, apply, within_limit,
+    Change, Disk, Failure, MAX_CHANGES, POSITION_DIGITS, RealDisk, TEMPORARY_EXTRA,
+    apply as apply_checked, within_limit,
 };
 use super::plan::{Address, check_addresses, lost_addresses};
 use super::text::{encode, read_destination, relative, set_aliases};
 use super::{RelocateOptions, RelocateOutcome, relocate, relocate_on};
 use crate::tests::Scratch;
 use crate::{build, check};
+
+/// `apply` with no text to compare the files against.
+fn apply(
+    disk: &mut dyn Disk,
+    changes: &[Change],
+    emptied: &[PathBuf],
+) -> Result<Vec<PathBuf>, Failure> {
+    apply_checked(disk, changes, emptied, &HashMap::new())
+}
 
 fn fixture(name: &str) -> Scratch {
     let s = Scratch::new(name);
@@ -877,6 +887,11 @@ impl Disk for Failing {
         self.inner.create_new(path, bytes)
     }
 
+    fn copy_permissions(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        self.tick()?;
+        self.inner.copy_permissions(from, to)
+    }
+
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
         self.tick()?;
         self.inner.rename(from, to)
@@ -948,7 +963,11 @@ fn an_interrupted_write_restores_every_file() {
             }
             failures += 1;
             assert!(out.report.has_errors());
-            assert!(!out.incomplete);
+            assert!(
+                !out.incomplete,
+                "{from} -> {to}: failing at step {fail_at}: {:?}",
+                out.report.items()
+            );
             assert_eq!(snapshot(&s.0), before, "{from}: failing at step {fail_at}");
         }
         assert!(failures >= 5, "{from}: {failures}");
@@ -1109,7 +1128,10 @@ fn markers_on_disk(root: &Path) -> Vec<String> {
     let mut found = Vec::new();
     for item in walkdir::WalkDir::new(root).min_depth(1) {
         let item = item.unwrap();
+        // A page left under a temporary name is not kept: it has no place in the library.
+        let temporary = item.file_name().to_string_lossy().starts_with(".anaquel-");
         if item.file_type().is_file()
+            && !temporary
             && let Ok(text) = fs::read_to_string(item.path())
         {
             for word in text.split(|c: char| !(c.is_alphanumeric() || c == '-')) {
@@ -1228,6 +1250,10 @@ impl Disk for CaseBlind {
 
     fn create_new(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
         self.0.create_new(path, bytes)
+    }
+
+    fn copy_permissions(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        self.0.copy_permissions(from, to)
     }
 
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
@@ -1441,6 +1467,10 @@ impl Disk for Stubborn {
 
     fn create_new(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
         self.0.create_new(path, bytes)
+    }
+
+    fn copy_permissions(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        self.0.copy_permissions(from, to)
     }
 
     fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
@@ -1730,6 +1760,326 @@ fn a_name_that_differs_from_an_existing_file_only_by_case_is_refused() {
     );
     assert!(messages(&out).contains("letter case"), "{}", messages(&out));
     assert_eq!(snapshot(&s.0), before);
+}
+
+#[test]
+fn a_destination_under_a_folder_the_move_empties_is_made_after_that_folder_is_vacated() {
+    // `c/x` leaves for `x`, and `c/c/x/p.png` takes the place of the file `c/x` as a folder.
+    let s = fixture("reloc-vacated-parent");
+    s.put("volumes/guide/a/b/c/_index.md", "# C\n");
+    s.put("volumes/guide/a/b/c/x", "MARKER-file-x");
+    s.put("volumes/guide/a/b/c/c/x/p.png", "MARKER-picture");
+
+    let dry = go(
+        &s,
+        "volumes/guide/a/b/c/_index.md",
+        "volumes/guide/a/b/_index.md",
+        true,
+    );
+    assert!(!dry.report.has_errors(), "{:?}", dry.report.items());
+    let real = go(
+        &s,
+        "volumes/guide/a/b/c/_index.md",
+        "volumes/guide/a/b/_index.md",
+        false,
+    );
+
+    assert!(real.applied, "{:?}", real.report.items());
+    assert_eq!(read(&s, "volumes/guide/a/b/x"), "MARKER-file-x");
+    assert_eq!(read(&s, "volumes/guide/a/b/c/x/p.png"), "MARKER-picture");
+}
+
+#[test]
+fn a_file_that_changed_since_the_library_read_it_stops_the_move() {
+    let s = fixture("reloc-changed-meanwhile");
+    let setup = s.0.join("volumes/guide/setup.md");
+    let terms = s.0.join("volumes/guide/terms.md");
+    let ingested = "# Setup\n".to_owned();
+    fs::write(&setup, "# Setup, edited while the move was running\n").unwrap();
+    fs::write(&terms, "# Terms\n").unwrap();
+    let before = snapshot(&s.0);
+    let moving = vec![Change::Move {
+        from: setup.clone(),
+        to: s.0.join("volumes/guide/install.md"),
+        text: Some("# New\n".to_owned()),
+    }];
+    let rewriting = vec![Change::Rewrite {
+        path: terms.clone(),
+        text: "# Terms, new\n".to_owned(),
+    }];
+
+    let moved = apply_checked(
+        &mut RealDisk,
+        &moving,
+        &[],
+        &HashMap::from([(setup, ingested)]),
+    )
+    .err()
+    .unwrap();
+    let rewritten = apply_checked(
+        &mut RealDisk,
+        &rewriting,
+        &[],
+        &HashMap::from([(terms, "# Terms, as read earlier\n".to_owned())]),
+    )
+    .err()
+    .unwrap();
+
+    for failure in [moved, rewritten] {
+        assert!(failure.restored);
+        assert!(
+            failure
+                .message
+                .contains("changed while the move was running"),
+            "{}",
+            failure.message
+        );
+    }
+    assert_eq!(snapshot(&s.0), before);
+}
+
+#[test]
+fn a_file_with_a_byte_order_mark_and_crlf_matches_what_the_library_read() {
+    let s = fixture("reloc-crlf-matches");
+    let path = s.0.join("volumes/guide/terms.md");
+    fs::write(&path, b"\xEF\xBB\xBF# Terms\r\n\r\n### Cache\r\n").unwrap();
+    let changes = vec![Change::Rewrite {
+        path: path.clone(),
+        text: "# Terms\n\n### Cache\n\nNew.\n".to_owned(),
+    }];
+
+    apply_checked(
+        &mut RealDisk,
+        &changes,
+        &[],
+        &HashMap::from([(path.clone(), "# Terms\n\n### Cache\n".to_owned())]),
+    )
+    .unwrap_or_else(|f| panic!("{}", f.message));
+
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        b"\xEF\xBB\xBF# Terms\r\n\r\n### Cache\r\n\r\nNew.\r\n"
+    );
+}
+
+/// A disk where nothing a temporary file needs can be undone.
+struct Hostile(RealDisk);
+
+fn is_staged(path: &Path) -> bool {
+    path.file_name()
+        .is_some_and(|n| n.to_string_lossy().starts_with(".anaquel-staged-"))
+}
+
+impl Disk for Hostile {
+    fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.0.read(path)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        self.0.exists(path)
+    }
+
+    fn write(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
+        self.0.write(path, bytes)
+    }
+
+    fn create_new(&mut self, path: &Path, bytes: &[u8]) -> io::Result<()> {
+        self.0.create_new(path, bytes)
+    }
+
+    fn copy_permissions(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        self.0.copy_permissions(from, to)
+    }
+
+    fn rename(&mut self, from: &Path, to: &Path) -> io::Result<()> {
+        if is_staged(from) {
+            Err(io::Error::other("the folder is locked"))
+        } else {
+            self.0.rename(from, to)
+        }
+    }
+
+    fn remove_file(&mut self, path: &Path) -> io::Result<()> {
+        if is_staged(path) {
+            Err(io::Error::other("the file is locked"))
+        } else {
+            self.0.remove_file(path)
+        }
+    }
+
+    fn create_dir(&mut self, path: &Path) -> io::Result<()> {
+        self.0.create_dir(path)
+    }
+
+    fn remove_dir(&mut self, path: &Path) -> io::Result<()> {
+        self.0.remove_dir(path)
+    }
+}
+
+#[test]
+fn a_temporary_file_that_cannot_be_removed_after_a_failed_move_is_not_called_restored() {
+    let s = fixture("reloc-stuck-temporary");
+    let changes = vec![Change::Rewrite {
+        path: s.0.join("volumes/guide/terms.md"),
+        text: "# Changed\n".to_owned(),
+    }];
+
+    let failure = apply(&mut Hostile(RealDisk), &changes, &[]).err().unwrap();
+
+    assert!(!failure.restored);
+    assert!(
+        failure
+            .unrestored
+            .iter()
+            .any(|l| l.contains(".anaquel-staged-000000") && l.contains("temporary file")),
+        "{:?}",
+        failure.unrestored
+    );
+}
+
+#[test]
+fn files_that_cannot_be_put_back_are_named_with_the_place_they_belong_in() {
+    let (s, out, _) = interrupted(
+        "reloc-named-leftovers",
+        "volumes/guide/setup.md",
+        "volumes/guide/new/setup.md",
+        vec![6, 7, 8, 9, 10, 11, 12],
+    );
+
+    assert!(out.incomplete, "{:?}", out.report.items());
+    let help = out
+        .report
+        .items()
+        .iter()
+        .filter_map(|d| d.help.clone())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(help.contains("belongs at"), "{help}");
+    assert!(help.contains("setup.md"), "{help}");
+    drop(s);
+}
+
+#[test]
+fn files_that_trade_places_survive_a_failure_at_every_step() {
+    let mut failures = 0;
+    let mut finished = false;
+    for fail_at in 1..200 {
+        let s = fixture("reloc-swap-injected");
+        s.put(
+            "volumes/guide/swap-a.md",
+            "---\ndraft: true\n---\nMARKER-a\n",
+        );
+        s.put(
+            "volumes/guide/swap-b.md",
+            "---\ndraft: true\n---\nMARKER-b\n",
+        );
+        let before = snapshot(&s.0);
+        let changes = vec![
+            Change::Move {
+                from: s.0.join("volumes/guide/swap-a.md"),
+                to: s.0.join("volumes/guide/swap-b.md"),
+                text: None,
+            },
+            Change::Move {
+                from: s.0.join("volumes/guide/swap-b.md"),
+                to: s.0.join("volumes/guide/swap-a.md"),
+                text: None,
+            },
+        ];
+        let mut disk = Failing {
+            inner: RealDisk,
+            fail_at: vec![fail_at],
+            count: 0,
+        };
+
+        match apply(&mut disk, &changes, &[]) {
+            Ok(leftovers) => {
+                assert_eq!(leftovers, Vec::<PathBuf>::new());
+                assert!(read(&s, "volumes/guide/swap-a.md").contains("MARKER-b"));
+                assert!(read(&s, "volumes/guide/swap-b.md").contains("MARKER-a"));
+                finished = true;
+                break;
+            }
+            Err(failure) => {
+                failures += 1;
+                assert!(failure.restored, "step {fail_at}: {:?}", failure.unrestored);
+                assert_eq!(snapshot(&s.0), before, "failing at step {fail_at}");
+            }
+        }
+    }
+    assert!(failures >= 4, "{failures}");
+    assert!(finished);
+}
+
+#[test]
+fn a_leftover_of_an_earlier_move_is_refused_before_anything_is_written() {
+    let s = fixture("reloc-earlier-leftover");
+    s.put("volumes/guide/ref/.anaquel-held-000007", "a page");
+    let before = snapshot(&s.0);
+
+    let out = go(
+        &s,
+        "volumes/guide/slugged.md",
+        "volumes/guide/other.md",
+        true,
+    );
+
+    assert!(
+        codes(&out).contains(&Code::RELOCATE_TAKEN),
+        "{:?}",
+        out.report.items()
+    );
+    assert!(
+        messages(&out).contains("volumes/guide/ref/.anaquel-held-000007"),
+        "{}",
+        messages(&out)
+    );
+    assert_eq!(snapshot(&s.0), before);
+}
+
+#[test]
+fn a_folder_that_cannot_be_listed_is_an_error_and_a_missing_one_is_empty() {
+    let s = fixture("reloc-listing");
+    let missing = names_in(&s.0.join("volumes/guide/none"));
+    let not_a_folder = names_in(&s.0.join("volumes/guide/terms.md"));
+    let mut found = names_in(&s.0.join("volumes/guide/ref")).unwrap();
+    found.sort();
+
+    assert_eq!(missing.unwrap(), Vec::<String>::new());
+    assert!(not_a_folder.is_err());
+    assert_eq!(found, ["_index.md", "api.md", "pic.txt"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_rewritten_file_keeps_its_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let s = fixture("reloc-permissions");
+    let path = s.0.join("volumes/guide/terms.md");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+    let changes = vec![
+        Change::Rewrite {
+            path: path.clone(),
+            text: "# Changed\n".to_owned(),
+        },
+        Change::Move {
+            from: s.0.join("volumes/guide/setup.md"),
+            to: s.0.join("volumes/guide/install.md"),
+            text: Some("# New\n".to_owned()),
+        },
+    ];
+    fs::set_permissions(
+        s.0.join("volumes/guide/setup.md"),
+        fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+
+    apply(&mut RealDisk, &changes, &[]).unwrap_or_else(|f| panic!("{}", f.message));
+
+    let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode(&path), 0o640);
+    assert_eq!(mode(&s.0.join("volumes/guide/install.md")), 0o600);
 }
 
 #[test]
