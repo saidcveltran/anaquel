@@ -20,9 +20,9 @@ English | [Español](README.es.md)
 
 </div>
 
-Anaquel is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product.
+Anaquel is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. The program itself runs on Windows and Linux (x86_64 today).
 
-> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The Linux archive was unpacked on Linux x86_64 by a second tester and ran the same four commands and a 10-minute `serve`; there the sums were compared, but the attestation signature was not verified. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to Cloudflare has been tested. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
+> **Status: early development; 0.1.1 is the latest release and 0.1.0 was the first.** The engine builds and checks a library, the preview server works, and a sample library of 271 pages builds with no diagnostics. There is no manual. For 0.1.1, the two archives, their SHA-256 sums and their build attestations were checked against the real release files, and the Windows archive was unpacked and ran `version`, `new`, `check --strict` and `build`. The Linux archive was unpacked on Linux x86_64 by a second tester and ran the same four commands and a 10-minute `serve`; there the sums were compared, but the attestation signature was not verified. The shell installer was checked on Linux in its mode that leaves your `PATH` alone for 0.1.0 only; the PowerShell installer and the default mode of the shell installer were not checked. No deployment to a web host has been tested, on Cloudflare or anywhere else; only the local preview server was. Read [When not to use Anaquel](#when-not-to-use-anaquel) before you start.
 
 <p align="center">
   <picture>
@@ -37,7 +37,7 @@ Anaquel is a documentation engine written in Rust that turns Markdown into a sta
   <img src="https://img.shields.io/badge/Rust-1.99%20%C2%B7%20edition%202024-161D28?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.99, edition 2024">
   <img src="https://img.shields.io/badge/Markdown-CommonMark%20%2B%20GFM-161D28?style=for-the-badge&logo=markdown&logoColor=white" alt="Markdown, CommonMark and GFM">
   <img src="https://img.shields.io/badge/Pagefind-search-161D28?style=for-the-badge" alt="Pagefind search">
-  <img src="https://img.shields.io/badge/Cloudflare-Workers%20target-161D28?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Workers as the deployment target">
+  <img src="https://img.shields.io/badge/Output-static%20site%20for%20any%20host-161D28?style=for-the-badge" alt="A static site that any web host can serve">
   <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%20and%20Windows-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions on Linux and Windows">
 </p>
 
@@ -54,7 +54,7 @@ Every dependency is pinned to an exact version. [THIRD-PARTY.md](THIRD-PARTY.md)
 
 ## En español
 
-**Anaquel** es un motor de documentación escrito en Rust: convierte Markdown en un sitio estático pensado para Cloudflare Workers, sin IA en el producto. Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros); los **Estantes** (Shelves), que agrupan tomos, están previstos. El build se detiene ante enlaces rotos, anclas rotas, URL duplicadas y términos desconocidos. Está en desarrollo temprano, sin versión publicada y sin manual. La versión completa en español está en [README.es.md](README.es.md).
+**Anaquel** es un motor de documentación escrito en Rust: convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros); los **Estantes** (Shelves), que agrupan tomos, están previstos. El build se detiene ante enlaces rotos, anclas rotas, URL duplicadas y términos desconocidos. Está en desarrollo temprano, sin versión publicada y sin manual. La versión completa en español está en [README.es.md](README.es.md).
 
 ## Contents
 
@@ -80,9 +80,9 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | CommonMark and GFM Markdown with YAML front matter | Available (0.1) | Tables, task lists, strikethrough, footnotes |
 | `[[term]]` links to a glossary entry of the same volume | Available (0.1) | Entries are the `###` headings of `terms.md` or `glossary.md` |
 | The build stops on broken links, broken anchors, duplicate URLs and unknown terms | Available (0.1) | Diagnostics have stable `AQ####` codes; `--strict` also fails on warnings |
-| A page that disappears without an alias is an error | Available (0.1) | Aliases become redirect pages and a Cloudflare `_redirects` file |
+| A page that disappears without an alias is an error | Available (0.1) | Aliases become redirect pages and a `_redirects` file (the format Cloudflare reads; other servers need the rules copied by hand) |
 | Raw HTML is refused; only `http`, `https` and `mailto` links pass | Available (0.1) | See [SECURITY.md](SECURITY.md) |
-| Strict Content-Security-Policy, no inline scripts or styles | Available (0.1) | Written to `_headers`; the preview server applies the same rules |
+| Strict Content-Security-Policy, no inline scripts or styles | Available (0.1) | Written to `_headers` (the format Cloudflare reads; other servers need the rules copied by hand); the preview server applies the same rules |
 | Full-text search | Available (0.1) | Through the external [Pagefind](https://pagefind.app) program; see [the decision](docs/decisions/0001-search.md) |
 | Local preview that rebuilds and reloads | Available (0.1) | `anaquel serve`, bound to `127.0.0.1` only |
 | `folio` theme with light and dark schemes and the bundled Literata font | Available (0.1) | No npm, no framework; motion respects `prefers-reduced-motion` |
@@ -92,11 +92,13 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | Shelves, `llms.txt`, translated volumes with `hreflang` links, theme texts in English and Spanish | In the development version, not in a release yet | See [`examples/multi-shelf`](examples/multi-shelf) and [`examples/bilingual`](examples/bilingual); other theme languages read English |
 | Signed release manifest check (library `anaquel-update`) | In the development version, not wired to a command | Verifies a minisign signature, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates; no network, no keys embedded yet; the maintainer's tool `anaquel-sign` makes the keys and signs the manifest |
 | `relocate`, `upgrade`, versioned docs | Planned (M2) | The `upgrade` command that downloads and replaces the program is not written; `relocate` is under review |
+| Builds for static Linux (musl), Linux ARM64 and Windows ARM64 | Planned (M2) | Only Windows x86_64 and Linux x86_64 are built today; the new targets are not built or tested yet |
+| A web panel to manage and edit the documentation, self-hosted on a VPS or any host | Planned, design first | Today documents are edited as files and Git; no design is written yet and nothing of the panel exists |
 
 ## Who it is for
 
 - **Authors of a manual** who want a build that fails on a broken link instead of publishing it.
-- **People who deploy to Cloudflare Workers** and want the headers and redirects written next to the site by the build.
+- **People who host a site themselves**, on a VPS, a static host or Cloudflare, and want the headers and redirects written next to the site by the build. The files use Cloudflare's `_headers` and `_redirects` format; for another server the same rules are copied by hand.
 - **Contributors** who like a small Rust workspace with strict lints and no hidden network use.
 
 ## Install
@@ -127,7 +129,7 @@ anaquel serve my-docs
 anaquel build my-docs
 ```
 
-`serve` prints `http://127.0.0.1:1111/`; edit a file under `my-docs/volumes/guide/` and the page reloads. `build` writes the site to `my-docs/dist`, ready to upload to any static host. CI runs `new`, `check` and `build` on Linux and Windows on every change, so these commands are tested. Publishing to Cloudflare Workers is not documented yet.
+`serve` prints `http://127.0.0.1:1111/`; edit a file under `my-docs/volumes/guide/` and the page reloads. `build` writes the site to `my-docs/dist`, ready to upload to a static host. CI runs `new`, `check` and `build` on Linux and Windows on every change, so these commands are tested. Uploading the result to a host has not been tried yet, and there is no guide per host.
 
 ## Commands
 
