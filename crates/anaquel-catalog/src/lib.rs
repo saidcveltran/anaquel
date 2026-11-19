@@ -15,8 +15,8 @@ pub use build::{HeadingsOf, normalise_alias};
 pub use links::ResolvedLink;
 pub use logical_path::LogicalPath;
 pub use model::{
-    Entry, EntryId, EntryKind, Heading, PageSource, Shelf, ShelfSource, TermTarget, Volume,
-    VolumeSource,
+    Alternate, Entry, EntryId, EntryKind, Heading, PageSource, Shelf, ShelfSource, TermTarget,
+    Volume, VolumeSource,
 };
 
 use std::collections::HashMap;
@@ -37,6 +37,8 @@ pub struct Catalog {
     /// Terms by (volume index, lowercase term): entry and heading position.
     lexicon: HashMap<(usize, String), (EntryId, usize)>,
     redirects: Vec<(String, String)>,
+    /// Entries by (volume index, path inside the volume).
+    by_rel: HashMap<(usize, String), EntryId>,
 }
 
 impl Catalog {
@@ -67,6 +69,43 @@ impl Catalog {
     /// Volumes in display order.
     pub fn volumes(&self) -> &[Volume] {
         &self.volumes
+    }
+
+    /// Language tag of a volume: its own `language`, or the library's.
+    pub fn volume_language(&self, volume: usize) -> &str {
+        self.volumes
+            .get(volume)
+            .and_then(|v| v.manifest.language.as_deref())
+            .unwrap_or(&self.library.language)
+    }
+
+    /// The same page in every language of its volume's translation group,
+    /// the page itself included, sorted by language. Empty when the volume
+    /// is neither translated nor a translation, or no other language has the page.
+    pub fn alternates(&self, id: EntryId) -> Vec<Alternate> {
+        let Some(entry) = self.entry(id) else {
+            return Vec::new();
+        };
+        let origin = self.volumes[entry.volume].translation_group();
+        let mut found: Vec<Alternate> = self
+            .volumes
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| v.translation_group() == origin)
+            .filter_map(|(index, _)| {
+                let other = self.by_rel.get(&(index, entry.rel.as_str().to_owned()))?;
+                let other = self.entry(*other).filter(|e| !e.draft)?;
+                Some(Alternate {
+                    language: self.volume_language(index).to_owned(),
+                    url: other.url.clone(),
+                })
+            })
+            .collect();
+        if found.len() < 2 {
+            return Vec::new();
+        }
+        found.sort_by(|a, b| a.language.cmp(&b.language));
+        found
     }
 
     /// Every entry, drafts included, in a stable order.

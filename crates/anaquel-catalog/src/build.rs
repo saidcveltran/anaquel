@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anaquel_diagnostics::{Code, Diagnostic, Report};
-use anaquel_schema::{LibraryManifest, parse_page, url_segment_problem};
+use anaquel_schema::{LibraryManifest, is_language_tag, parse_page, url_segment_problem};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::model::{
@@ -36,6 +36,7 @@ pub(crate) fn build(
         ))
     });
     check_shelves(&shelves, &sources, &mut report);
+    check_translations(&sources, &library.language, &mut report);
     let rank = |shelf: Option<&str>| {
         shelf.map_or(0, |slug| {
             shelves
@@ -95,6 +96,10 @@ pub(crate) fn build(
         entry.id = EntryId(index);
     }
 
+    let by_rel: HashMap<(usize, String), EntryId> = entries
+        .iter()
+        .map(|e| ((e.volume, e.rel.as_str().to_owned()), e.id))
+        .collect();
     let by_source: HashMap<String, EntryId> = entries
         .iter()
         .map(|e| (e.source.as_str().to_owned(), e.id))
@@ -116,6 +121,7 @@ pub(crate) fn build(
             files,
             lexicon,
             redirects,
+            by_rel,
         },
         report,
     )
@@ -150,6 +156,98 @@ fn check_shelves(shelves: &[Shelf], sources: &[VolumeSource], report: &mut Repor
                 }
             }
             Some(_) => {}
+        }
+    }
+}
+
+/// Checks `language` and `translation_of` of every volume: tags look like
+/// BCP 47, the original exists and is not itself a translation, and no two
+/// volumes of one group share a language.
+fn check_translations(sources: &[VolumeSource], library_language: &str, report: &mut Report) {
+    let language_of = |s: &VolumeSource| {
+        s.manifest
+            .language
+            .as_deref()
+            .unwrap_or(library_language)
+            .to_ascii_lowercase()
+    };
+    let at = |s: &VolumeSource| format!("{}/volume.toml", s.folder());
+    let mut groups: BTreeMap<String, Vec<&VolumeSource>> = BTreeMap::new();
+    for source in sources {
+        if let Some(tag) = source
+            .manifest
+            .language
+            .as_deref()
+            .filter(|tag| !is_language_tag(tag))
+        {
+            report.push(
+                Diagnostic::error(
+                    Code::MANIFEST,
+                    format!("`language = \"{tag}\"` is not a language tag"),
+                )
+                .at(at(source))
+                .with_help("write a BCP 47 tag such as \"en\", \"es\" or \"pt-BR\""),
+            );
+        }
+        let origin = match source.manifest.translation_of.as_deref() {
+            None => source.address(),
+            Some(target) if target == source.address() => {
+                report.push(
+                    Diagnostic::error(
+                        Code::MANIFEST,
+                        format!("volume `{target}` cannot be a translation of itself"),
+                    )
+                    .at(at(source)),
+                );
+                continue;
+            }
+            Some(target) => match sources.iter().find(|s| s.address() == target) {
+                None => {
+                    report.push(
+                        Diagnostic::error(
+                            Code::MANIFEST,
+                            format!("`translation_of = \"{target}\"` names no volume"),
+                        )
+                        .at(at(source))
+                        .with_help("use the address of the volume: `slug`, or `shelf/slug`"),
+                    );
+                    continue;
+                }
+                Some(original) if original.manifest.translation_of.is_some() => {
+                    report.push(
+                        Diagnostic::error(
+                            Code::MANIFEST,
+                            format!(
+                                "`{target}` is itself a translation; point every translation at the original volume"
+                            ),
+                        )
+                        .at(at(source)),
+                    );
+                    continue;
+                }
+                Some(_) => target.to_owned(),
+            },
+        };
+        groups.entry(origin).or_default().push(source);
+    }
+    for members in groups.values() {
+        let mut seen: HashMap<String, &VolumeSource> = HashMap::new();
+        for &source in members {
+            let language = language_of(source);
+            if let Some(first) = seen.insert(language.clone(), source) {
+                report.push(
+                    Diagnostic::error(
+                        Code::MANIFEST,
+                        format!(
+                            "volumes `{}` and `{}` are the same book in the same language (`{language}`)",
+                            first.address(),
+                            source.address()
+                        ),
+                    )
+                    .at(at(source))
+                    .with_help("give each translation its own `language`"),
+                );
+            }
         }
     }
 }

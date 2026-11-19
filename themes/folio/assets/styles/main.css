@@ -337,6 +337,22 @@ a {
   font-weight: 650;
 }
 
+.sidebar-languages {
+  margin: 1.25rem 0 0.25rem;
+  padding: 0 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar a[aria-current="true"] {
+  background: var(--bg-soft);
+  color: var(--accent);
+  font-weight: 650;
+}
+
 .content {
   min-width: 0;
   padding: 2rem clamp(1rem, 4vw, 3rem) 4rem;

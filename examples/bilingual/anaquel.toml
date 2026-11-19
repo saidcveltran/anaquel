@@ -1,0 +1,6 @@
+schema = 1
+engine = "0.1"
+title = "Bilingual Library"
+language = "en"
+base_url = "https://docs.example"
+description = "An invented library with one book in English and in Spanish."

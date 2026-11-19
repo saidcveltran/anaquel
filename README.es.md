@@ -20,9 +20,9 @@
 
 </div>
 
-Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático para Cloudflare Workers, sin IA en el producto.
+Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. El programa corre en Windows y Linux; la integración continua lo compila y prueba en x86_64 y ARM64 (mira [Instalación](#instalación)).
 
-> **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. De la 0.1.1 se comprobaron con los archivos reales de la versión los dos archivos, sus sumas SHA-256 y sus atestaciones de compilación, y el archivo de Windows se descomprimió y ejecutó `version`, `new`, `check --strict` y `build`. El archivo de Linux lo descomprimió en Linux x86_64 un segundo probador y ejecutó esos mismos cuatro comandos y un `serve` de 10 minutos; allí se compararon las sumas, pero no se verificó la firma de la atestación. El instalador de shell se comprobó en Linux, en el modo que no toca tu `PATH`, solo con la 0.1.0; el instalador de PowerShell y el modo por defecto del instalador de shell no se comprobaron. No se ha probado ningún despliegue en Cloudflare. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
+> **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. De la 0.1.1 se comprobaron con los archivos reales de la versión los dos archivos, sus sumas SHA-256 y sus atestaciones de compilación, y el archivo de Windows se descomprimió y ejecutó `version`, `new`, `check --strict` y `build`. El archivo de Linux lo descomprimió en Linux x86_64 un segundo probador y ejecutó esos mismos cuatro comandos y un `serve` de 10 minutos; allí se compararon las sumas, pero no se verificó la firma de la atestación. El instalador de shell se comprobó en Linux, en el modo que no toca tu `PATH`, solo con la 0.1.0; el instalador de PowerShell y el modo por defecto del instalador de shell no se comprobaron. No se ha probado ningún despliegue en un alojamiento web, ni en Cloudflare ni en otro; solo el servidor de vista previa local. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
 
 <p align="center">
   <picture>
@@ -37,7 +37,7 @@ Anaquel es un motor de documentación escrito en Rust que convierte Markdown en 
   <img src="https://img.shields.io/badge/Rust-1.99%20%C2%B7%20edici%C3%B3n%202024-161D28?style=for-the-badge&logo=rust&logoColor=white" alt="Rust 1.99, edición 2024">
   <img src="https://img.shields.io/badge/Markdown-CommonMark%20%2B%20GFM-161D28?style=for-the-badge&logo=markdown&logoColor=white" alt="Markdown, CommonMark y GFM">
   <img src="https://img.shields.io/badge/Pagefind-b%C3%BAsqueda-161D28?style=for-the-badge" alt="Búsqueda con Pagefind">
-  <img src="https://img.shields.io/badge/Cloudflare-destino%20Workers-161D28?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare Workers como destino de despliegue">
+  <img src="https://img.shields.io/badge/Salida-sitio%20est%C3%A1tico%20para%20cualquier%20alojamiento-161D28?style=for-the-badge" alt="Un sitio estático que cualquier alojamiento web puede servir">
   <img src="https://img.shields.io/badge/GitHub%20Actions-Linux%20y%20Windows-161D28?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions en Linux y Windows">
 </p>
 
@@ -54,7 +54,7 @@ Cada dependencia está fijada a una versión exacta. [THIRD-PARTY.md](THIRD-PART
 
 ## In English
 
-**Anaquel** is a documentation engine written in Rust that turns Markdown into a static site for Cloudflare Workers, with no AI in the product. It is early (version 0.1), has no release and no manual. The full English version is [README.md](README.md). The documentation of the project is in English; this file is its Spanish translation.
+**Anaquel** is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. It is early (version 0.1), has no release and no manual. The full English version is [README.md](README.md). The documentation of the project is in English; this file is its Spanish translation.
 
 ## Contenido
 
@@ -80,21 +80,25 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Markdown CommonMark y GFM con front matter YAML | Disponible (0.1) | Tablas, listas de tareas, tachado, notas al pie |
 | Enlaces `[[término]]` a una entrada del glosario del mismo tomo | Disponible (0.1) | Las entradas son los encabezados `###` de `terms.md` o `glossary.md` |
 | El build se detiene ante enlaces rotos, anclas rotas, URL duplicadas y términos desconocidos | Disponible (0.1) | Los diagnósticos tienen códigos estables `AQ####`; `--strict` falla también ante advertencias |
-| Una página que desaparece sin alias es un error | Disponible (0.1) | Los alias se vuelven páginas de redirección y un archivo `_redirects` de Cloudflare |
+| Una página que desaparece sin alias es un error | Disponible (0.1) | Los alias se vuelven páginas de redirección y un archivo `_redirects` (el formato que lee Cloudflare; en otros servidores las reglas se copian a mano) |
 | Se rechaza el HTML en bruto; solo pasan enlaces `http`, `https` y `mailto` | Disponible (0.1) | Ver [SECURITY.md](SECURITY.md) |
-| Content-Security-Policy estricta, sin scripts ni estilos en línea | Disponible (0.1) | Se escribe en `_headers`; el servidor de vista previa aplica las mismas reglas |
+| Content-Security-Policy estricta, sin scripts ni estilos en línea | Disponible (0.1) | Se escribe en `_headers` (el formato que lee Cloudflare; en otros servidores las reglas se copian a mano); el servidor de vista previa aplica las mismas reglas |
 | Búsqueda de texto completo | Disponible (0.1) | Con el programa externo [Pagefind](https://pagefind.app); ver [la decisión](docs/decisions/0001-search.md) |
 | Vista previa local que recompila y recarga | Disponible (0.1) | `anaquel serve`, solo en `127.0.0.1` |
 | Tema `folio` con esquemas claro y oscuro y la fuente Literata incluida | Disponible (0.1) | Sin npm ni framework; el movimiento respeta `prefers-reduced-motion` |
 | Directivas: aviso, detalles, pestañas, tarjetas, pasos, columnas, incrustado | Disponible (0.1) | Una página cada una en [`examples/directives`](examples/directives); el conjunto es cerrado |
 | Resaltado de sintaxis del código con valla, en ambos esquemas | Disponible (0.1) | Solo clases, sin estilos en línea; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java y más; los demás quedan en texto plano (aún sin TOML, TypeScript ni PowerShell) |
 | Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
-| Estantes, varios idiomas, `relocate`, `upgrade`, documentación versionada | Prevista (M2) | Nada de esta fila está en el código hoy |
+| Estantes, `llms.txt`, tomos traducidos con enlaces `hreflang`, textos del tema en inglés y español | En la versión de desarrollo, aún no en una versión publicada | Mira [`examples/multi-shelf`](examples/multi-shelf) y [`examples/bilingual`](examples/bilingual); los demás idiomas del tema se leen en inglés |
+| Comprobación del manifiesto firmado de versiones (biblioteca `anaquel-update`) | En la versión de desarrollo, sin conectar a un comando | Verifica una firma minisign y luego elige una versión y rechaza actualizaciones caducadas, repetidas, retiradas, que bajen de versión o con dirección ajena; sin red y sin claves incluidas aún; la herramienta del mantenedor `anaquel-sign` crea las claves y firma el manifiesto |
+| `relocate`, `upgrade`, documentación versionada | Prevista (M2) | El comando `upgrade` que descarga y reemplaza el programa no está escrito; `relocate` está en revisión |
+| Versiones para Linux estático (musl), Linux ARM64 y Windows ARM64 | En la versión de desarrollo, aún no en una versión publicada | La integración continua ejecuta las pruebas y compila y descomprime el archivo de versión de los cinco destinos, con ejecutores nativos para los dos de ARM, y comprueba que la versión estática no tiene dependencias dinámicas. La 0.1.1 solo trae Windows x86_64 y Linux x86_64; los demás aparecen con la próxima versión, y ninguno de los archivos nuevos lo ha descargado y ejecutado una persona |
+| Un panel web para gestionar y editar la documentación, alojado por uno mismo en un VPS o cualquier servidor | Prevista, primero el diseño | Hoy los documentos se editan como archivos y con Git; aún no hay diseño escrito y no existe nada del panel |
 
 ## Para quién es
 
 - **Autores de un manual** que quieren que el build falle ante un enlace roto en vez de publicarlo.
-- **Quien despliega en Cloudflare Workers** y quiere las cabeceras y las redirecciones generadas con el sitio.
+- **Quien aloja un sitio por su cuenta**, en un VPS, un alojamiento estático o Cloudflare, y quiere las cabeceras y las redirecciones generadas con el sitio. Los archivos usan el formato `_headers` y `_redirects` de Cloudflare; en otro servidor se copian las mismas reglas a mano.
 - **Quien contribuye** y prefiere un workspace de Rust pequeño, con lints estrictos y sin uso oculto de la red.
 
 ## Instalación
@@ -114,7 +118,7 @@ cargo build --release -p anaquel
 
 La búsqueda necesita el programa `pagefind` junto a `anaquel` o en el `PATH` (o la variable `ANAQUEL_PAGEFIND` con su ruta). Sin él, el sitio se compila igual, sin cuadro de búsqueda. `anaquel doctor` te dice en qué caso estás.
 
-Las versiones traen sumas SHA-256. No están firmadas por Windows, así que SmartScreen avisará; es lo esperado. Solo se compilan y prueban Windows x86_64 y Linux x86_64. macOS y Linux arm64 no están soportados: nadie ejecuta Anaquel ahí, y las versiones posteriores a la 0.1.0 no traen archivo para macOS (la 0.1.0 conserva dos que ya no se mantienen), así que el instalador de una versión posterior falla en un Mac porque no encuentra archivo para ese sistema; es lo esperado, no un error.
+Las versiones traen sumas SHA-256. No están firmadas por Windows, así que SmartScreen avisará; es lo esperado. La 0.1.1 trae archivos solo para Windows x86_64 y Linux x86_64. La versión de desarrollo se compila y prueba en la integración continua para esos dos, para un Linux x86_64 estático (musl, sin bibliotecas dinámicas), para Linux ARM64 y para Windows ARM64; aparecen en la próxima versión. macOS no está soportado: nadie ejecuta Anaquel ahí, y las versiones posteriores a la 0.1.0 no traen archivo para macOS (la 0.1.0 conserva dos que ya no se mantienen), así que el instalador de una versión posterior falla en un Mac porque no encuentra archivo para ese sistema; es lo esperado, no un error.
 
 ## Ejemplo de cinco minutos
 
@@ -125,7 +129,7 @@ anaquel serve my-docs
 anaquel build my-docs
 ```
 
-`serve` imprime `http://127.0.0.1:1111/`; edita un archivo de `my-docs/volumes/guide/` y la página se recarga. `build` escribe el sitio en `my-docs/dist`, listo para subir a cualquier alojamiento estático. La integración continua ejecuta `new`, `check` y `build` en Linux y Windows en cada cambio, así que estos comandos están probados. Publicar en Cloudflare Workers aún no está documentado.
+`serve` imprime `http://127.0.0.1:1111/`; edita un archivo de `my-docs/volumes/guide/` y la página se recarga. `build` escribe el sitio en `my-docs/dist`, listo para subir a un alojamiento estático. La integración continua ejecuta `new`, `check` y `build` en Linux y Windows en cada cambio, así que estos comandos están probados. Aún no se ha probado subir el resultado a un alojamiento y no hay guía para cada uno.
 
 ## Comandos
 
@@ -159,7 +163,7 @@ La última fila es la que cuenta hoy.
 
 - Necesitas algo que funcione hoy en producción: Anaquel está en la 0.1 y no tiene manual.
 - Dependes de un ecosistema grande de temas, complementos e importadores: no existe, y una sola persona mantiene el proyecto.
-- Necesitas documentación versionada, varios idiomas o una referencia OpenAPI: están previstas, no construidas.
+- Necesitas documentación versionada o una referencia OpenAPI: están previstas, no construidas. Varios idiomas está solo en la versión de desarrollo.
 - Quieres búsqueda sin instalar otro programa: Pagefind es externo.
 - Necesitas una interfaz en un idioma distinto del inglés: los textos del tema están solo en inglés por ahora.
 
@@ -179,6 +183,8 @@ El build es una cadena: ingest, catalog, compose, render, emit, index. Cada etap
 | `anaquel-assets`, `anaquel-emit` | Recursos con huella, `_headers`, `_redirects`, `sitemap.xml`, `llms.txt`, 404 |
 | `anaquel-search` | El puerto hacia Pagefind |
 | `anaquel-pipeline` | Las etapas en orden |
+| `anaquel-update` | El núcleo de confianza de `upgrade`: firma, elección de versión, huella de la descarga (sin red) |
+| `anaquel-sign` | La herramienta del mantenedor que crea las claves de firma y firma el manifiesto (no se distribuye) |
 | `anaquel-preview` | El servidor de vista previa |
 
 ## Desarrollo y pruebas

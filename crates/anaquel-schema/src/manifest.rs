@@ -40,6 +40,24 @@ pub struct VolumeManifest {
     /// Position among the volumes of the library; lower comes first.
     #[serde(default)]
     pub weight: i64,
+    /// BCP 47 language tag of this volume; the library's `language` when absent.
+    #[serde(default)]
+    pub language: Option<String>,
+    /// Address of the volume this one translates (`guide`, or `shelf/guide`).
+    /// Pages are paired by their path inside the volume.
+    #[serde(default)]
+    pub translation_of: Option<String>,
+}
+
+/// Whether `tag` looks like a BCP 47 tag: subtags of 1 to 8 ASCII letters or digits
+/// joined by `-`, the first one made of letters only.
+#[must_use]
+pub fn is_language_tag(tag: &str) -> bool {
+    let mut parts = tag.split('-');
+    let first = parts.next().unwrap_or("");
+    (2..=8).contains(&first.len())
+        && first.bytes().all(|b| b.is_ascii_alphabetic())
+        && parts.all(|p| (1..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
 /// Contents of `shelf.toml`, the manifest of a group of volumes.

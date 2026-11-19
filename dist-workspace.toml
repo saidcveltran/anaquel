@@ -10,7 +10,16 @@ ci = "github"
 # The installers to generate for each app
 installers = ["shell", "powershell"]
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+]
+# Linux archives are .tar.gz, which a small pure-Rust library reads (the default, .tar.xz,
+# needs a C library). Windows archives stay .zip, the one format winget documents.
+unix-archive = ".tar.gz"
 # Where to host releases
 hosting = "github"
 # A SHA-256 sum next to each archive, and a build attestation of GitHub
@@ -20,3 +29,9 @@ github-attestations = true
 include = ["README.md", "NOTICE", "THIRD-PARTY.md"]
 # Run the release plan on pull requests; the build itself only runs on a tag
 pr-run-mode = "plan"
+
+# Windows on ARM is built on a native ARM runner, not cross-built inside a third-party
+# container image, so the program is built and tested where it will run and no unpinned
+# image takes part in the release build.
+[dist.github-custom-runners]
+aarch64-pc-windows-msvc = "windows-11-arm"
