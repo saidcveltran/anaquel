@@ -6,6 +6,8 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-19
+
 ### Changed
 
 - Release archives: from the next release the Linux archives are `.tar.gz` (`anaquel-x86_64-unknown-linux-gnu.tar.gz` instead of `.tar.xz`, and likewise for musl and ARM64), which the coming `anaquel upgrade` reads with a small pure-Rust library; the Windows archives stay `.zip`, the format winget documents. `dist plan` lists the five archives with these names, and the install smoke test of CI builds, unpacks and runs each of them. Limits: the released 0.1.x archives keep their old names; anyone who unpacked a Linux `.tar.xz` by hand now needs `tar -xzf`; whether winget or Scoop would also accept a `.tar.gz` was not established, only that `.zip` is the format their documentation names.
