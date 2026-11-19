@@ -91,7 +91,8 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Fuzzing de los analizadores | Disponible (0.1) | [`fuzz/`](fuzz): objetivos de libFuzzer que corren 10 minutos en CI solo en Linux; en todos los sistemas una prueba de humo reproduce el corpus; ver [`fuzz/README.md`](fuzz/README.md) |
 | Estantes, `llms.txt`, tomos traducidos con enlaces `hreflang`, textos del tema en inglés y español | En la versión de desarrollo, aún no en una versión publicada | Mira [`examples/multi-shelf`](examples/multi-shelf) y [`examples/bilingual`](examples/bilingual); los demás idiomas del tema se leen en inglés |
 | Comprobación del manifiesto firmado de versiones (biblioteca `anaquel-update`) | En la versión de desarrollo, sin conectar a un comando | Verifica una firma minisign y luego elige una versión y rechaza actualizaciones caducadas, repetidas, retiradas, que bajen de versión o con dirección ajena; sin red y sin claves incluidas aún; la herramienta del mantenedor `anaquel-sign` crea las claves y firma el manifiesto |
-| `relocate`, `upgrade`, documentación versionada | Prevista (M2) | El comando `upgrade` que descarga y reemplaza el programa no está escrito; `relocate` está en revisión |
+| `anaquel upgrade` (`--check`, `--version`, `--allow-downgrade`, `--rollback`) | En la versión de desarrollo, aún no en un release; no puede tener éxito hasta que un release lleve un manifiesto firmado | Descarga la información firmada del release desde los releases de GitHub del proyecto por HTTPS, verifica su firma minisign con las dos claves incluidas en el programa, y entonces elige un release y rechaza actualizaciones caducadas, repetidas, retiradas, que bajan de versión o de otra dirección. Comprueba el tamaño y el SHA-256 del único archivo, ejecuta el programa nuevo para ver que arranca y dice la versión prometida, y lo pone en su lugar guardando una versión anterior (`--rollback` vuelve a ella). No reemplaza un programa que pertenezca a Scoop, winget o al gestor de paquetes del sistema. La vuelta atrás y la comprobación contra la dirección real se ejecutaron a mano en Windows; la instalación completa solo se ejecutó contra una red simulada, nunca contra un release real; Linux, musl y ARM solo por CI. Contra la dirección real hoy se detiene con «estado 404», porque ningún release publicado tiene manifiesto; la herramienta `anaquel-sign` del mantenedor lo escribe y lo firma |
+| `relocate`, documentación versionada | Prevista (M2) | `relocate` está en revisión |
 | Versiones para Linux estático (musl), Linux ARM64 y Windows ARM64 | En la versión de desarrollo, aún no en una versión publicada | La integración continua ejecuta las pruebas y compila y descomprime el archivo de versión de los cinco destinos, con ejecutores nativos para los dos de ARM, y comprueba que la versión estática no tiene dependencias dinámicas. La 0.1.1 solo trae Windows x86_64 y Linux x86_64; los demás aparecen con la próxima versión, y ninguno de los archivos nuevos lo ha descargado y ejecutado una persona |
 | Un panel web para gestionar y editar la documentación, alojado por uno mismo en un VPS o cualquier servidor | Prevista, primero el diseño | Hoy los documentos se editan como archivos y con Git; aún no hay diseño escrito y no existe nada del panel |
 
@@ -142,6 +143,7 @@ anaquel build my-docs
 | `build [RAÍZ] [--out DIR] [--no-search] [--strict]` | Escribe el sitio estático |
 | `serve [RAÍZ] [--port N] [--search]` | Vista previa en `127.0.0.1` que recompila y recarga al cambiar |
 | `doctor` | Informa de las herramientas que Anaquel encuentra en este equipo |
+| `upgrade [--check] [--version X.Y.Z [--allow-downgrade]] [--rollback]` | Reemplaza este programa por un release firmado más nuevo, o vuelve al que reemplazó; es el único comando que usa la red (versión de desarrollo) |
 | `version` | Imprime la versión |
 
 ## Comparación
@@ -184,6 +186,7 @@ El build es una cadena: ingest, catalog, compose, render, emit, index. Cada etap
 | `anaquel-search` | El puerto hacia Pagefind |
 | `anaquel-pipeline` | Las etapas en orden |
 | `anaquel-update` | El núcleo de confianza de `upgrade`: firma, elección de versión, huella de la descarga (sin red) |
+| `anaquel-upgrade` | El trabajo de `upgrade`: el cliente de descarga, la lectura del archivo del release, la prueba del programa, el cambio y la vuelta atrás |
 | `anaquel-sign` | La herramienta del mantenedor que crea las claves de firma y firma el manifiesto (no se distribuye) |
 | `anaquel-preview` | El servidor de vista previa |
 

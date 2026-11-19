@@ -18,6 +18,8 @@ const PREVIOUS_SUFFIX: &str = ".previous";
 const STAGED_SUFFIX: &str = ".new";
 /// Name suffix of the program that is put aside for a moment during a rollback.
 const ASIDE_SUFFIX: &str = ".swap";
+/// Name suffix of the release archive while it is downloaded.
+const DOWNLOAD_SUFFIX: &str = ".download";
 
 /// The file next to `installed` that holds the program kept from before the last upgrade.
 #[must_use]
@@ -29,6 +31,13 @@ pub fn previous_path(installed: &Path) -> PathBuf {
 #[must_use]
 pub fn staged_path(installed: &Path) -> PathBuf {
     with_suffix(installed, STAGED_SUFFIX)
+}
+
+/// The file next to `installed` that holds the release archive while it is downloaded, so the
+/// archive is on the same disk as the program and a full disk shows before anything is replaced.
+#[must_use]
+pub fn download_path(installed: &Path) -> PathBuf {
+    with_suffix(installed, DOWNLOAD_SUFFIX)
 }
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {

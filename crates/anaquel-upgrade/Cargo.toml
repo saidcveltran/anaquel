@@ -1,6 +1,6 @@
 [package]
 name = "anaquel-upgrade"
-description = "The file work of `anaquel upgrade`: reading a release archive, swapping the program, rolling back"
+description = "The work of `anaquel upgrade`: download, archive, program check, swap and rollback"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,13 +8,25 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+# A library for the program, and one program of its own for its tests (`probe_fixture`). Neither
+# is released by itself: the program that carries this code is `anaquel`.
+[package.metadata.dist]
+dist = false
+
 [dependencies]
 anaquel-update.workspace = true
 flate2.workspace = true
+semver.workspace = true
 tar.workspace = true
 thiserror.workspace = true
 ureq.workspace = true
 zip.workspace = true
+
+[dev-dependencies]
+# The tests sign a manifest with a key made on the spot, as the maintainer does, and write the
+# digest the manifest promises.
+anaquel-sign.workspace = true
+sha2.workspace = true
 
 [lints]
 workspace = true
