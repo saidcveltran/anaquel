@@ -18,7 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # The two ARM runners run the same steps natively, so the release builds for
+        # Linux ARM64 and Windows ARM64 are tested where they will run.
+        os: [ubuntu-latest, windows-latest, ubuntu-22.04-arm, windows-11-arm]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.0
@@ -59,8 +61,23 @@ jobs:
           "$bin" build my-docs --no-search
           test -f my-docs/dist/index.html
 
+  # The tests again, against the C library the static Linux build uses.
+  test-musl:
+    name: test (x86_64-unknown-linux-musl)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+      - name: Install the musl compiler wrapper
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+      - name: Test
+        run: cargo test --workspace --locked --target x86_64-unknown-linux-musl
+
   install-smoke:
-    name: install smoke (${{ matrix.os }})
+    name: install smoke (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -68,12 +85,25 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Install the musl compiler wrapper
+        if: endsWith(matrix.target, '-musl')
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
@@ -86,6 +116,16 @@ jobs:
         run: |
           archive="$(ls target/distrib/anaquel-${{ matrix.target }}.* | grep -v '\.sha256$' | head -n 1)"
           python -I tools/install_smoke.py "$archive" --sums "$archive.sha256"
+      - name: The static Linux build has no dynamic dependencies
+        if: endsWith(matrix.target, '-musl')
+        shell: bash
+        run: |
+          archive="$(ls target/distrib/anaquel-${{ matrix.target }}.* | grep -v '\.sha256$' | head -n 1)"
+          unpacked="$(mktemp -d)"
+          tar -xJf "$archive" -C "$unpacked"
+          program="$(find "$unpacked" -type f -name anaquel | head -n 1)"
+          file "$program"
+          file "$program" | grep -E 'statically linked|static-pie linked'
 
   images:
     name: image metadata

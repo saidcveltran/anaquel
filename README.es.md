@@ -20,7 +20,7 @@
 
 </div>
 
-Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. El programa corre en Windows y Linux (hoy x86_64).
+Anaquel es un motor de documentación escrito en Rust que convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. El programa corre en Windows y Linux; la integración continua lo compila y prueba en x86_64 y ARM64 (mira [Instalación](#instalación)).
 
 > **Estado: desarrollo temprano; 0.1.1 es la última versión publicada y la 0.1.0 fue la primera.** El motor compila y comprueba una biblioteca, el servidor de vista previa funciona y una biblioteca de ejemplo de 271 páginas compila sin diagnósticos. No hay manual. De la 0.1.1 se comprobaron con los archivos reales de la versión los dos archivos, sus sumas SHA-256 y sus atestaciones de compilación, y el archivo de Windows se descomprimió y ejecutó `version`, `new`, `check --strict` y `build`. El archivo de Linux lo descomprimió en Linux x86_64 un segundo probador y ejecutó esos mismos cuatro comandos y un `serve` de 10 minutos; allí se compararon las sumas, pero no se verificó la firma de la atestación. El instalador de shell se comprobó en Linux, en el modo que no toca tu `PATH`, solo con la 0.1.0; el instalador de PowerShell y el modo por defecto del instalador de shell no se comprobaron. No se ha probado ningún despliegue en un alojamiento web, ni en Cloudflare ni en otro; solo el servidor de vista previa local. Lee [Cuándo no usar Anaquel](#cuándo-no-usar-anaquel) antes de empezar.
 
@@ -92,7 +92,7 @@ Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros
 | Estantes, `llms.txt`, tomos traducidos con enlaces `hreflang`, textos del tema en inglés y español | En la versión de desarrollo, aún no en una versión publicada | Mira [`examples/multi-shelf`](examples/multi-shelf) y [`examples/bilingual`](examples/bilingual); los demás idiomas del tema se leen en inglés |
 | Comprobación del manifiesto firmado de versiones (biblioteca `anaquel-update`) | En la versión de desarrollo, sin conectar a un comando | Verifica una firma minisign y luego elige una versión y rechaza actualizaciones caducadas, repetidas, retiradas, que bajen de versión o con dirección ajena; sin red y sin claves incluidas aún; la herramienta del mantenedor `anaquel-sign` crea las claves y firma el manifiesto |
 | `relocate`, `upgrade`, documentación versionada | Prevista (M2) | El comando `upgrade` que descarga y reemplaza el programa no está escrito; `relocate` está en revisión |
-| Versiones para Linux estático (musl), Linux ARM64 y Windows ARM64 | Prevista (M2) | Hoy solo se compila Windows x86_64 y Linux x86_64; los destinos nuevos aún no se compilan ni se prueban |
+| Versiones para Linux estático (musl), Linux ARM64 y Windows ARM64 | En la versión de desarrollo, aún no en una versión publicada | La integración continua ejecuta las pruebas y compila y descomprime el archivo de versión de los cinco destinos, con ejecutores nativos para los dos de ARM, y comprueba que la versión estática no tiene dependencias dinámicas. La 0.1.1 solo trae Windows x86_64 y Linux x86_64; los demás aparecen con la próxima versión, y ninguno de los archivos nuevos lo ha descargado y ejecutado una persona |
 | Un panel web para gestionar y editar la documentación, alojado por uno mismo en un VPS o cualquier servidor | Prevista, primero el diseño | Hoy los documentos se editan como archivos y con Git; aún no hay diseño escrito y no existe nada del panel |
 
 ## Para quién es
@@ -118,7 +118,7 @@ cargo build --release -p anaquel
 
 La búsqueda necesita el programa `pagefind` junto a `anaquel` o en el `PATH` (o la variable `ANAQUEL_PAGEFIND` con su ruta). Sin él, el sitio se compila igual, sin cuadro de búsqueda. `anaquel doctor` te dice en qué caso estás.
 
-Las versiones traen sumas SHA-256. No están firmadas por Windows, así que SmartScreen avisará; es lo esperado. Solo se compilan y prueban Windows x86_64 y Linux x86_64. macOS y Linux arm64 no están soportados: nadie ejecuta Anaquel ahí, y las versiones posteriores a la 0.1.0 no traen archivo para macOS (la 0.1.0 conserva dos que ya no se mantienen), así que el instalador de una versión posterior falla en un Mac porque no encuentra archivo para ese sistema; es lo esperado, no un error.
+Las versiones traen sumas SHA-256. No están firmadas por Windows, así que SmartScreen avisará; es lo esperado. La 0.1.1 trae archivos solo para Windows x86_64 y Linux x86_64. La versión de desarrollo se compila y prueba en la integración continua para esos dos, para un Linux x86_64 estático (musl, sin bibliotecas dinámicas), para Linux ARM64 y para Windows ARM64; aparecen en la próxima versión. macOS no está soportado: nadie ejecuta Anaquel ahí, y las versiones posteriores a la 0.1.0 no traen archivo para macOS (la 0.1.0 conserva dos que ya no se mantienen), así que el instalador de una versión posterior falla en un Mac porque no encuentra archivo para ese sistema; es lo esperado, no un error.
 
 ## Ejemplo de cinco minutos
 
