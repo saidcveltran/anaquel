@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "issued": "2026-11-19T00:00:00Z",
+  "expires": "2026-12-19T00:00:00Z",
+  "releases": [
+    {
+      "version": "0.1.1",
+      "published": "2026-11-17T00:00:00Z",
+      "assets": {
+        "x86_64-unknown-linux-gnu": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.1/anaquel-x86_64-unknown-linux-gnu.tar.xz",
+          "sha256": "551abc955e0fa056f79755fedd8a74ade5ae41f68fa9a448649d3ca06efbbd98",
+          "size": 1000000
+        },
+        "x86_64-pc-windows-msvc": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.1/anaquel-x86_64-pc-windows-msvc.zip",
+          "sha256": "65324b5dce8e903c05be0037898dbdf0f6956dfc8db169e20176fe61881407dc",
+          "size": 1000000
+        }
+      }
+    },
+    {
+      "version": "0.1.2",
+      "published": "2026-11-19T00:00:00Z",
+      "assets": {
+        "x86_64-unknown-linux-gnu": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.2/anaquel-x86_64-unknown-linux-gnu.tar.xz",
+          "sha256": "44be20b647b654118f6ad8ef1e430bbe3a4e07b753e4a85aa742f237491ce405",
+          "size": 51
+        },
+        "x86_64-pc-windows-msvc": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.2/anaquel-x86_64-pc-windows-msvc.zip",
+          "sha256": "6af250ba5f9e8f672d0fe4aa97a84a713a0b34a701f3c9d60716312e843ecf4d",
+          "size": 1000000
+        }
+      }
+    },
+    {
+      "version": "0.1.3",
+      "published": "2026-11-19T00:00:00Z",
+      "withdrawn": {
+        "reason": "the installer failed on some Windows machines"
+      },
+      "assets": {
+        "x86_64-unknown-linux-gnu": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.3/anaquel-x86_64-unknown-linux-gnu.tar.xz",
+          "sha256": "e7232e018c5189bf9bf7645fc2d1a5abe8dd65bbc58468937639664f86a4a765",
+          "size": 1000000
+        },
+        "x86_64-pc-windows-msvc": {
+          "url": "https://github.com/saidcveltran/anaquel/releases/download/v0.1.3/anaquel-x86_64-pc-windows-msvc.zip",
+          "sha256": "1fcc7e5eac78887da513c6aae30fdd9858e05f3c162a9587a180a0c33bf1a153",
+          "size": 1000000
+        }
+      }
+    }
+  ],
+  "advisories": [
+    {
+      "id": "ANAQUEL-2026-001",
+      "severity": "high",
+      "affects": "<0.1.2",
+      "message": "fixed in 0.1.2; upgrade as soon as possible"
+    }
+  ]
+}
