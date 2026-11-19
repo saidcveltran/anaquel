@@ -25,6 +25,7 @@ dependencies = [
  "anaquel-pipeline",
  "anaquel-preview",
  "anaquel-search",
+ "anaquel-studio",
  "anaquel-update",
  "anaquel-upgrade",
  "clap",

@@ -17,6 +17,7 @@ anaquel-diagnostics.workspace = true
 anaquel-pipeline.workspace = true
 anaquel-preview.workspace = true
 anaquel-search.workspace = true
+anaquel-studio.workspace = true
 anaquel-update.workspace = true
 anaquel-upgrade.workspace = true
 clap.workspace = true
