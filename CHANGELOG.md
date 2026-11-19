@@ -6,6 +6,10 @@ All notable changes to this project are written here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Design page `docs/decisions/0006-studio-phase-one.md`: how phase 1 of the web panel (`anaquel studio`, local and single user) is built and cut into pieces, with the tests it requires; proposed, nothing built. Its main points: paths as a checked type, an atomic save with a stale-text check, a preview that is the build with one page's text replaced, and request guards (`Host`, `Origin`, a random token) because any web page can send requests to `127.0.0.1`. Unmeasured: how fast an analysis per pause in typing is on a large library.
+
 ## [0.2.0] - 2026-11-19
 
 ### Changed
