@@ -1,6 +1,7 @@
 //! `anaquel`: command line of the Anaquel documentation engine.
 
 mod scaffold;
+mod upgrade;
 
 use std::fmt::Write as _;
 use std::io::Write;
@@ -90,6 +91,24 @@ enum Command {
     },
     /// Show what this installation can and cannot do.
     Doctor,
+    /// Replace this program with a newer release, after checking its signature.
+    ///
+    /// This is the only command that uses the network, and only to download the signed release
+    /// information and one release file from the project's GitHub releases.
+    Upgrade {
+        /// Only report what would be done; nothing is installed.
+        #[arg(long, conflicts_with = "rollback")]
+        check: bool,
+        /// Install this exact version and not the newest.
+        #[arg(long, value_name = "X.Y.Z", conflicts_with = "rollback")]
+        version: Option<semver::Version>,
+        /// Allow installing a version older than this one.
+        #[arg(long, requires = "version")]
+        allow_downgrade: bool,
+        /// Go back to the program the last upgrade replaced.
+        #[arg(long)]
+        rollback: bool,
+    },
     /// Print the version.
     Version,
 }
@@ -130,6 +149,17 @@ fn main() -> ExitCode {
         } => move_page(root, from, to, dry_run),
         Command::Serve { root, port, search } => serve(&root, port, search),
         Command::Doctor => doctor(),
+        Command::Upgrade {
+            check,
+            version,
+            allow_downgrade,
+            rollback,
+        } => upgrade::run(&upgrade::Args {
+            check,
+            version,
+            allow_downgrade,
+            rollback,
+        }),
         Command::Version => {
             say(&format!("anaquel {ENGINE_VERSION}"));
             ExitCode::SUCCESS

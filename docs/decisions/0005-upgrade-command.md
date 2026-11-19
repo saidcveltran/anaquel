@@ -3,8 +3,10 @@
 Status: accepted as a design (2026-11-19), with the questions at the end settled by the
 maintainer. Built so far: `anaquel-update` (the trust core), the two release public keys,
 `anaquel-sign manifest` and, in `anaquel-upgrade`, the archive (`.tar.gz` and `.zip`), swap and
-state pieces, and the download client with its address policy (not yet linked into the program).
-The command itself is not built.
+state pieces, the download client with its address policy, the procedure, the program check and
+the command `anaquel upgrade` with `--check`, `--version`, `--allow-downgrade` and `--rollback`.
+Not built: the optional notice, and the Scoop and winget packages. The command cannot succeed
+against the real address until a release carries a signed `release-manifest.json`.
 
 ## Context
 
