@@ -172,6 +172,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "anaquel-studio"
+version = "0.2.0"
+dependencies = [
+ "anaquel-pipeline",
+ "anaquel-schema",
+ "sha2",
+ "thiserror",
+ "walkdir",
+]
+
+[[package]]
 name = "anaquel-theme"
 version = "0.2.0"
 dependencies = [

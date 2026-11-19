@@ -6,6 +6,7 @@
 mod destination;
 mod disk;
 mod plan;
+mod rewrite;
 mod text;
 
 use std::collections::HashMap;
@@ -16,6 +17,7 @@ use anaquel_diagnostics::{Code, Diagnostic, Report};
 
 use crate::ingest::Ingested;
 use disk::{Disk, RealDisk};
+pub use rewrite::{RewriteError, rewrite_page};
 
 #[cfg(test)]
 mod tests;

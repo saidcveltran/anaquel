@@ -7,7 +7,7 @@ mod ingest;
 mod relocate;
 mod views;
 
-pub use relocate::{RelocateOptions, RelocateOutcome, relocate};
+pub use relocate::{RelocateOptions, RelocateOutcome, RewriteError, relocate, rewrite_page};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};

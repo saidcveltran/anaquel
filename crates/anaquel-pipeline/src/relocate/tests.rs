@@ -109,7 +109,7 @@ fn codes(outcome: &RelocateOutcome) -> Vec<Code> {
     outcome.report.items().iter().map(|d| d.code).collect()
 }
 
-fn snapshot(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
+pub(super) fn snapshot(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
     let mut found = BTreeMap::new();
     for item in walkdir::WalkDir::new(root).min_depth(1) {
         let item = item.unwrap();
@@ -851,10 +851,11 @@ fn a_swap_or_chain_of_addresses_is_refused() {
     );
 }
 
-struct Failing {
-    inner: RealDisk,
-    fail_at: Vec<usize>,
-    count: usize,
+/// A disk that fails the calls whose position, counted from 1, is in `fail_at`.
+pub(super) struct Failing {
+    pub(super) inner: RealDisk,
+    pub(super) fail_at: Vec<usize>,
+    pub(super) count: usize,
 }
 
 impl Failing {

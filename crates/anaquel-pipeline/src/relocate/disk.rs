@@ -109,8 +109,29 @@ enum Undo {
     Restore { path: PathBuf, bytes: Vec<u8> },
 }
 
+/// The reason inside the error of a file that no longer reads as the text the library read, so a
+/// caller can tell it from a failure of the disk.
+#[derive(Debug)]
+struct FileChanged(PathBuf);
+
+impl std::fmt::Display for FileChanged {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} changed while the move was running", self.0.display())
+    }
+}
+
+impl std::error::Error for FileChanged {}
+
+fn is_file_changed(error: &io::Error) -> bool {
+    error
+        .get_ref()
+        .is_some_and(<dyn std::error::Error + Send + Sync>::is::<FileChanged>)
+}
+
 pub(super) struct Failure {
     pub(super) message: String,
+    /// Whether the step that failed was the comparison with the text the library read.
+    pub(super) changed: bool,
     pub(super) restored: bool,
     /// One line for each step that could not be undone: where a file is and where it belongs.
     pub(super) unrestored: Vec<String>,
@@ -146,6 +167,7 @@ pub(super) fn apply(
     if !within_limit(changes.len()) {
         return Err(Failure {
             message: format!("a move may hold at most {MAX_CHANGES} files"),
+            changed: false,
             restored: true,
             unrestored: Vec::new(),
         });
@@ -156,6 +178,7 @@ pub(super) fn apply(
         let unrestored = roll_back(disk, undo);
         return Err(Failure {
             message: error.to_string(),
+            changed: is_file_changed(&error),
             restored: unrestored.is_empty(),
             unrestored,
         });
@@ -279,7 +302,7 @@ fn read_expected(
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("{} changed while the move was running", path.display()),
+            FileChanged(path.to_path_buf()),
         ));
     }
     Ok(bytes)
