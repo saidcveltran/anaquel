@@ -52,8 +52,9 @@ base64 = { version = "=0.22.1", default-features = false, features = ["std"] }
 blake2 = "=0.11.0"
 blake3 = "=1.8.7"
 ed25519-compact = { version = "=2.6.1", default-features = false }
-# Pure-Rust deflate, so no C library is needed on any of the five targets.
-flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
+# Pure-Rust deflate, so no C library is needed on any of the five targets. The version is the
+# one `syntect` already brought into the lock file, so there is still only one.
+flate2 = { version = "=1.1.11", default-features = false, features = ["rust_backend"] }
 getrandom = "=0.4.3"
 rpassword = "=7.5.5"
 scrypt = { version = "=0.12.0", default-features = false }
