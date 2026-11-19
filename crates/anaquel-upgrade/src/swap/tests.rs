@@ -29,6 +29,32 @@ fn failing_after(succeed: usize) -> impl FnMut(&Path, &Path) -> io::Result<()> {
 }
 
 #[test]
+fn the_helper_files_sit_beside_the_program_under_names_that_differ() {
+    let program = Path::new("tools").join("anaquel.exe");
+    let names = [
+        previous_path(&program),
+        staged_path(&program),
+        download_path(&program),
+        program.clone(),
+    ];
+    for (index, name) in names.iter().enumerate() {
+        assert_eq!(
+            name.parent(),
+            program.parent(),
+            "{name:?} is not beside the program"
+        );
+        assert!(
+            names[index + 1..].iter().all(|other| other != name),
+            "{name:?} is used twice"
+        );
+    }
+    assert_eq!(
+        download_path(&program),
+        Path::new("tools").join("anaquel.exe.download")
+    );
+}
+
+#[test]
 fn the_new_program_takes_the_place_and_the_old_one_is_kept() {
     let (scratch, program, staged) = folder("install", b"old", b"new");
     install(&program, &staged).unwrap();

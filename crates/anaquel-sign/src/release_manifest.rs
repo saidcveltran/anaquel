@@ -163,8 +163,7 @@ pub fn resolve_times(
         )));
     }
     let parse = |text: &str| Timestamp::parse(text).map_err(ManifestBuildError::BadTimes);
-    let now =
-        crate::calendar::timestamp_from_unix(now_unix).map_err(ManifestBuildError::BadTimes)?;
+    let now = Timestamp::from_unix_seconds(now_unix).map_err(ManifestBuildError::BadTimes)?;
     let published = choice.published.map_or_else(|| Ok(now.clone()), parse)?;
     let issued = choice.issued.map_or_else(|| Ok(now.clone()), parse)?;
     let expires = match (choice.expires, choice.issued) {
@@ -175,7 +174,7 @@ pub fn resolve_times(
                 .checked_mul(86_400)
                 .and_then(|span| now_unix.checked_add(span))
                 .ok_or_else(|| bad("the expiry is too far away".to_owned()))?;
-            crate::calendar::timestamp_from_unix(seconds).map_err(ManifestBuildError::BadTimes)?
+            Timestamp::from_unix_seconds(seconds).map_err(ManifestBuildError::BadTimes)?
         }
         (None, Some(_)) => {
             return Err(bad(

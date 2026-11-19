@@ -17,7 +17,10 @@ anaquel-diagnostics.workspace = true
 anaquel-pipeline.workspace = true
 anaquel-preview.workspace = true
 anaquel-search.workspace = true
+anaquel-update.workspace = true
+anaquel-upgrade.workspace = true
 clap.workspace = true
+semver.workspace = true
 
 # The crates are not published to crates.io (`publish = false`), but this program is released
 # as a binary archive, so dist must not skip it.

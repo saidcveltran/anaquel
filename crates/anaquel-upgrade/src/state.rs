@@ -14,7 +14,7 @@ use anaquel_update::Timestamp;
 use thiserror::Error;
 
 /// Name of the file that holds the time.
-const LAST_SEEN_FILE: &str = "last-manifest-time";
+pub(crate) const LAST_SEEN_FILE: &str = "last-manifest-time";
 /// Name of the folder inside the system's state folder.
 const FOLDER_NAME: &str = "anaquel";
 /// A time is 20 characters; anything much larger is not this file.

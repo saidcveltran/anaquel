@@ -12,7 +12,6 @@
 //! - [`workflow`] runs the two maintainer commands on files with a passphrase source,
 //!   so the same code is tested without a terminal.
 
-mod calendar;
 mod error;
 mod key;
 pub mod release_manifest;

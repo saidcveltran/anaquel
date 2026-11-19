@@ -90,8 +90,8 @@ A site is a **Library** made of **Volumes** (books). Each volume holds sections 
 | Syntax highlighting of fenced code, in both colour schemes | Available (0.1) | Classes only, no inline styles; Rust, Python, JavaScript, JSON, YAML, shell, HTML, CSS, SQL, C, C++, Go, Java and more; others stay plain (no TOML, TypeScript or PowerShell yet) |
 | Fuzzing of the parsers | Available (0.1) | [`fuzz/`](fuzz): libFuzzer targets run for 10 minutes in CI on Linux only; on every system a smoke test replays the corpus; see [`fuzz/README.md`](fuzz/README.md) |
 | Shelves, `llms.txt`, translated volumes with `hreflang` links, theme texts in English and Spanish | In the development version, not in a release yet | See [`examples/multi-shelf`](examples/multi-shelf) and [`examples/bilingual`](examples/bilingual); other theme languages read English |
-| Signed release manifest check (library `anaquel-update`) | In the development version, not wired to a command | Verifies a minisign signature, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates; no network, no keys embedded yet; the maintainer's tool `anaquel-sign` makes the keys and signs the manifest |
-| `relocate`, `upgrade`, versioned docs | Planned (M2) | The `upgrade` command that downloads and replaces the program is not written; `relocate` is under review |
+| `anaquel upgrade` (`--check`, `--version`, `--allow-downgrade`, `--rollback`) | In the development version, not in a release yet; it cannot succeed until a release carries a signed manifest | Downloads the signed release information from the project's GitHub releases over HTTPS, verifies its minisign signature with the two keys built into the program, then picks a release and refuses expired, replayed, withdrawn, downgrading or foreign-address updates. It checks the size and SHA-256 of the one archive, runs the new program to see that it starts and reports the promised version, and swaps it in, keeping one previous version (`--rollback` goes back). It will not replace a program that Scoop, winget or the system package manager owns. The rollback and the check against the real address were run by hand on Windows; the whole installation was run only against a scripted network, never against a real release; Linux, musl and ARM only by CI. Against the real address it stops today with "status 404", because no published release has a manifest; the maintainer's tool `anaquel-sign` writes and signs it |
+| `relocate`, versioned docs | Planned (M2) | `relocate` is under review |
 | Builds for static Linux (musl), Linux ARM64 and Windows ARM64 | In the development version, not in a published release yet | CI runs the tests and builds and unpacks the release archive on all five targets, on native runners for both ARM ones, and checks that the static build has no dynamic dependencies. Release 0.1.1 has only Windows x86_64 and Linux x86_64; the others appear with the next release, and none of the new archives has been downloaded and run by a person |
 | A web panel to manage and edit the documentation, self-hosted on a VPS or any host | Planned, design first | Today documents are edited as files and Git; no design is written yet and nothing of the panel exists |
 
@@ -142,6 +142,7 @@ anaquel build my-docs
 | `build [ROOT] [--out DIR] [--no-search] [--strict]` | Writes the static site |
 | `serve [ROOT] [--port N] [--search]` | Preview on `127.0.0.1` that rebuilds and reloads on change |
 | `doctor` | Reports the tools Anaquel finds on this machine |
+| `upgrade [--check] [--version X.Y.Z [--allow-downgrade]] [--rollback]` | Replaces this program with a newer signed release, or goes back to the one it replaced; the only command that uses the network (development version) |
 | `version` | Prints the version |
 
 ## How it compares
@@ -184,6 +185,7 @@ The build is a pipeline: ingest, catalog, compose, render, emit, index. Each sta
 | `anaquel-search` | The port to Pagefind |
 | `anaquel-pipeline` | The stages in order |
 | `anaquel-update` | The trust core of `upgrade`: signature, release choice, download digest (no network) |
+| `anaquel-upgrade` | The work of `upgrade`: the download client, reading the release archive, the program check, the swap and the rollback |
 | `anaquel-sign` | The maintainer's tool that makes release signing keys and signs the manifest (not shipped) |
 | `anaquel-preview` | The preview server |
 
