@@ -3,3 +3,4 @@
 *.woff2 binary
 *.ico binary
 crates/anaquel-update/tests/fixtures/* -text
+crates/anaquel-update/tests/fixtures/real-keys/* -text
