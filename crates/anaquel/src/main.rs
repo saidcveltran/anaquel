@@ -327,7 +327,7 @@ fn studio(root: &Path, port: u16) -> ExitCode {
         Ok(running) => running,
         Err(diagnostic) => return fail(&diagnostic),
     };
-    say(&format!("studio for {}", root.display()));
+    say(&format!("studio for {}", anaquel_studio::plain_path(&root)));
     say(
         "open this address in the browser of this computer; it carries the key, so share it with nobody:",
     );

@@ -82,7 +82,7 @@ impl Studio {
                 Code::MANIFEST,
                 format!(
                     "{} is not a library folder: no anaquel.toml",
-                    config.root.display()
+                    crate::plain_path::plain_path(&config.root)
                 ),
             )
             .with_help(

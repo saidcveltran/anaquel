@@ -197,8 +197,12 @@
     return page.shelf ? page.shelf + " / " + page.volume : page.volume;
   }
 
-  function fileName(path) {
-    return path.slice(path.lastIndexOf("/") + 1);
+  // The path of a page inside its volume (`foundations/_index.md`), which tells apart the many
+  // pages that share a file name such as `_index.md`.
+  function pathInVolume(page) {
+    const marker = "volumes/" + page.volume + "/";
+    const start = page.path.indexOf(marker);
+    return start < 0 ? page.path : page.path.slice(start + marker.length);
   }
 
   function renderPages() {
@@ -231,7 +235,7 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "page";
-    button.textContent = page.title || fileName(page.path);
+    button.textContent = page.title || pathInVolume(page);
     button.title = page.path;
     if (app.current && app.current.path === page.path) button.setAttribute("aria-current", "true");
     const kind = page.status.kind;
@@ -422,11 +426,14 @@
   }
 
   // The frame has no scripts; the links inside it must not take the preview away from the page.
+  // The node of a click belongs to the frame, whose `Element` is not the `Element` of this page,
+  // so `instanceof` would be false for every click; the node is asked for `closest` instead.
   function keepFrameInPlace() {
     const doc = el.frame.contentDocument;
     if (!doc) return;
     doc.addEventListener("click", (event) => {
-      if (event.target instanceof Element && event.target.closest("a")) event.preventDefault();
+      const node = event.target;
+      if (node && typeof node.closest === "function" && node.closest("a")) event.preventDefault();
     });
   }
 
