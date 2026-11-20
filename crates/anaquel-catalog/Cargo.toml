@@ -13,6 +13,7 @@ anaquel-diagnostics.workspace = true
 anaquel-directive.workspace = true
 anaquel-schema.workspace = true
 blake3.workspace = true
+rayon.workspace = true
 unicode-normalization.workspace = true
 
 [lints]

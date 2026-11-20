@@ -369,6 +369,8 @@ fn redirect_page(language: &str, target: &str) -> String {
 }
 
 #[cfg(test)]
+mod equivalence;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod xss;

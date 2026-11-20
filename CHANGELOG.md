@@ -8,6 +8,25 @@ All notable changes to this project are written here. The format follows
 
 ### Changed
 
+- Reading and checking a library uses all the threads of the machine: the Markdown files of a
+  volume are read in parallel, and so are the page headers and headings the catalog extracts.
+  Diagnostics, catalog entries and the site written are the same as before, in the same order,
+  whatever the number of threads; equivalence tests compare a generated library full of faults
+  under 1, 2, 3 and 8 threads with a recorded reference, and the site of a clean library file by
+  file. Measured on one Windows PC with a synthetic library of 10 368 pages, new and previous
+  program in the same ordinary folder, alternating order, 12 rounds each: `anaquel check` took a
+  median 0.359 s against 1.152 s (paired ratio 0.31, faster in 12 of 12 rounds) and
+  `anaquel build` 4.73 s against 5.55 s (paired ratio 0.83, faster in 12 of 12 rounds); the
+  10 378 files of both sites were identical. In a Debian 13 virtual machine with 6 virtual CPUs
+  on the same PC (same library, same method, 12 rounds) the gain is smaller: `check` took a
+  median 0.415 s against 0.351 s (paired ratio 0.82, faster in 10 of 11 rounds once the first
+  round, whose previous program ran on a cold file cache for 7.07 s, is left out) and `build`
+  1.144 s against 0.884 s (paired ratio 0.87, faster in only 7 of 11 rounds, so that result is
+  not clearly distinguishable from noise); the sites were identical there too. Limits: one PC
+  and one library; the Linux figures come from a virtual machine, where a warm file cache makes
+  reading cheap and so leaves less to overlap; the build gains less than `check` because
+  rendering and writing the files are not part of it; the equivalence tests cannot see an
+  order that changes only between runs of one thread count.
 - The build writes the files of a site with up to eight threads instead of one. Files whose
   paths are the same, or differ only in case, are written in their original order, so the
   result on disk is the one of writing them in sequence. Sets of fewer than 64 distinct paths
