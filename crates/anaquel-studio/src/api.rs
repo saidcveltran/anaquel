@@ -14,6 +14,8 @@ use crate::library_path::PathError;
 use crate::page_store::{PageText, Revision, SaveError};
 use crate::pages::{PageList, PageStatus, PageSummary};
 
+pub(crate) mod inert_preview;
+
 /// A refusal in the form the interface reads: an HTTP status, a stable code and a message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ApiError {
@@ -182,11 +184,14 @@ pub(crate) fn saved_body(path: &str, revision: &Revision) -> Value {
 }
 
 /// The body of `POST /__studio/api/preview`.
+///
+/// The HTML goes without its `<script>` elements: the frame that shows it cannot run them, and the
+/// browser reports each one it refuses in the console (see [`inert_preview`]).
 pub(crate) fn preview_body(preview: &PagePreview) -> Value {
     json!({
         "page": preview.page.iter().map(diagnostic_body).collect::<Vec<_>>(),
         "elsewhere": preview.elsewhere.iter().map(diagnostic_body).collect::<Vec<_>>(),
-        "html": preview.html,
+        "html": preview.html.as_deref().map(inert_preview::without_scripts),
         "url": preview.url,
         "draft": preview.draft,
         "frame_origins": preview.frame_origins,

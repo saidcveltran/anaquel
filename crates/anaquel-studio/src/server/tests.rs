@@ -1009,7 +1009,15 @@ fn a_preview_is_the_page_the_pipeline_renders_and_writes_nothing() {
     let body = reply.json();
     assert_eq!(body["page"], json!([]));
     let expected = anaquel_pipeline::preview_page(r.folder.root(), PAGE, text);
-    assert_eq!(body["html"], expected.html.clone().unwrap());
+    // The page of the pipeline holds the scripts of the theme; the editor leaves them out because
+    // the frame would only report each one as blocked. Everything else is the same page.
+    let built = expected.html.clone().unwrap();
+    assert!(built.contains("<script"), "{built}");
+    assert_eq!(
+        body["html"],
+        crate::api::inert_preview::without_scripts(&built)
+    );
+    assert!(!body["html"].as_str().unwrap().contains("<script"));
     assert_eq!(body["url"], expected.url.clone().unwrap());
     assert_eq!(body["draft"], false);
     assert!(body["html"].as_str().unwrap().contains("A new paragraph"));
