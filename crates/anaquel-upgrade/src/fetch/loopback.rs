@@ -7,8 +7,8 @@
 use std::fmt::Write as _;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -79,6 +79,25 @@ fn head(status_line: &str, headers: &[(&str, String)]) -> Vec<u8> {
     format!("HTTP/1.1 {status_line}\r\nConnection: close\r\n{fields}\r\n").into_bytes()
 }
 
+/// Serializes the binding of loopback ports inside the test process.
+///
+/// The operating system hands a port that was just released to the next `bind` on port 0, so
+/// a test that needs a port nobody listens on would otherwise race with the servers that other
+/// tests start in parallel: its client could connect to one of them and consume its only reply.
+static PORT_BINDING: Mutex<()> = Mutex::new(());
+
+/// Run `action` with the address of `path` on a loopback port that nobody listens on.
+///
+/// No server of this module can bind a port while `action` runs, so the port cannot be taken
+/// by another test before the client has tried it.
+pub fn with_unused_port<T>(path: &str, action: impl FnOnce(&str) -> T) -> T {
+    let _binding = PORT_BINDING.lock().unwrap_or_else(PoisonError::into_inner);
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a free loopback port");
+    let port = listener.local_addr().expect("local address").port();
+    drop(listener);
+    action(&format!("http://127.0.0.1:{port}{path}"))
+}
+
 /// A running scripted server.
 pub struct Server {
     port: u16,
@@ -89,7 +108,10 @@ pub struct Server {
 impl Server {
     /// Start the server on a free port of `127.0.0.1`, with one reply per expected connection.
     pub fn start(script: Vec<Reply>) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind a free loopback port");
+        let listener = {
+            let _binding = PORT_BINDING.lock().unwrap_or_else(PoisonError::into_inner);
+            TcpListener::bind("127.0.0.1:0").expect("bind a free loopback port")
+        };
         listener
             .set_nonblocking(true)
             .expect("make accept non-blocking");

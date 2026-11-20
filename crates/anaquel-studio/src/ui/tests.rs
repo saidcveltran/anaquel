@@ -263,3 +263,29 @@ fn the_script_posts_json_and_never_puts_the_key_in_an_address() {
     );
     assert!(!SCRIPT.contains("document.cookie"));
 }
+
+#[test]
+fn the_script_does_not_test_nodes_of_the_frame_with_a_class_of_this_page() {
+    // Found in a browser: a click inside the preview frame has a node whose `Element` is the
+    // frame's own, so `instanceof Element` was false for every click and the links of the
+    // preview took the frame away. A check on a node of the frame asks the node what it can do.
+    for forbidden in [
+        "instanceof Element",
+        "instanceof HTMLElement",
+        "instanceof Node",
+    ] {
+        assert!(!SCRIPT.contains(forbidden), "`{forbidden}` in app.js");
+    }
+    assert!(SCRIPT.contains("typeof node.closest === \"function\""));
+}
+
+#[test]
+fn pages_with_the_same_file_name_are_told_apart_by_their_path_in_the_volume() {
+    // Found in a browser: the list showed a dozen entries all called `_index.md`.
+    assert!(SCRIPT.contains("function pathInVolume(page)"));
+    assert!(SCRIPT.contains("page.title || pathInVolume(page)"));
+    assert!(
+        !SCRIPT.contains("fileName("),
+        "the bare file name is no longer used"
+    );
+}

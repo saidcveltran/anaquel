@@ -3,7 +3,7 @@
 use std::io::{self, Read, Write};
 use std::time::{Duration, Instant};
 
-use super::loopback::{Reply, Server};
+use super::loopback::{Reply, Server, with_unused_port};
 use super::{
     Fetch, FetchError, HttpFetch, MAX_REDIRECTS, Policy, SHOWN_ADDRESS_BYTES, USER_AGENT,
     copy_limited, fetch_to_vec, resolve, shown,
@@ -454,22 +454,41 @@ fn a_server_that_never_answers_ends_in_a_timeout_and_not_a_hang() {
 
 #[test]
 fn a_port_with_nobody_listening_fails_and_does_not_hang() {
-    let server = Server::start(vec![]);
-    let address = server.address("/x");
-    server.finish();
-    let started = Instant::now();
-    let error = fetch_to_vec(&local_client(), &address, 100).unwrap_err();
+    let (error, elapsed) = with_unused_port("/x", |address| {
+        let started = Instant::now();
+        let error = fetch_to_vec(&local_client(), address, 100).unwrap_err();
+        (error, started.elapsed())
+    });
     // Linux refuses the connection at once (a transport error); Windows retries the connection
     // until the connect limit of the client runs out (a timeout).
     assert!(
         matches!(error, FetchError::Transport(_) | FetchError::TimedOut),
         "{error:?}"
     );
+    assert!(elapsed < Duration::from_secs(6), "took {elapsed:?}");
+}
+
+#[test]
+fn no_server_binds_a_port_while_a_test_probes_an_unused_one() {
+    // Negative case of the guard: a server started during the probe must wait for it to end.
+    // Without the lock the thread would finish at once and `finished` would be true.
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let finished_during_probe = with_unused_port("/x", |_| {
+        let starter = std::thread::spawn(move || {
+            let server = Server::start(vec![]);
+            sender.send(()).expect("report the start");
+            server.finish();
+        });
+        std::thread::sleep(Duration::from_millis(300));
+        let finished = receiver.try_recv().is_ok();
+        (finished, starter)
+    });
+    let (finished, starter) = finished_during_probe;
     assert!(
-        started.elapsed() < Duration::from_secs(6),
-        "took {:?}",
-        started.elapsed()
+        !finished,
+        "a server was bound while the port was being probed"
     );
+    starter.join().expect("the starter thread ended");
 }
 
 #[test]

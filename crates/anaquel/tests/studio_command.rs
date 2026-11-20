@@ -133,6 +133,12 @@ mod studio_command {
         assert!(path.starts_with("/__studio/enter?token="), "{path}");
         let key = path.rsplit('=').next().unwrap();
         assert_eq!(key.len(), 64);
+        let first = &running.lines[0];
+        assert!(first.starts_with("studio for "), "{first}");
+        assert!(
+            !first.contains(r"\\?\"),
+            "the extended Windows prefix is shown: {first}"
+        );
 
         let reply = get(port, &path);
         assert!(reply.starts_with("HTTP/1.1 303"), "{reply}");
@@ -187,6 +193,10 @@ mod studio_command {
         assert_eq!(output.status.code(), Some(2));
         let message = String::from_utf8_lossy(&output.stderr);
         assert!(message.contains("anaquel.toml"), "{message}");
+        assert!(
+            !message.contains(r"\\?\"),
+            "the extended Windows prefix is shown: {message}"
+        );
         assert!(String::from_utf8_lossy(&output.stdout).is_empty());
     }
 
