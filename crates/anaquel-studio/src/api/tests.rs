@@ -241,3 +241,22 @@ fn a_preview_with_html_carries_it_unchanged() {
     assert_eq!(body["draft"], true);
     assert_eq!(body["frame_origins"], json!(["https://www.youtube.com"]));
 }
+
+#[test]
+fn a_preview_leaves_out_the_scripts_of_its_html_and_nothing_else() {
+    let preview = PagePreview {
+        page: Vec::new(),
+        elsewhere: Vec::new(),
+        html: Some(
+            "<head><script src=\"/assets/a.js\" defer></script></head><body><p>x</p></body>"
+                .to_owned(),
+        ),
+        url: Some("/guide/setup/".to_owned()),
+        draft: false,
+        frame_origins: Vec::new(),
+    };
+    let body = preview_body(&preview);
+    assert_eq!(body["html"], "<head></head><body><p>x</p></body>");
+    // The value the pipeline holds is untouched: only the body of the request changes.
+    assert!(preview.html.as_deref().unwrap().contains("<script"));
+}

@@ -36,6 +36,20 @@ All notable changes to this project are written here. The format follows
   reports the failure, and the error is always the one of the first failing file in order,
   whatever the timing of the threads. The ledger of the previous build is left as it was.
 
+### Fixed
+
+- The preview of `anaquel studio` no longer fills the browser console with one "Blocked script
+  execution in 'about:srcdoc'" message per script of the page. The preview frame never ran
+  scripts (its sandbox has no `allow-scripts`); the editor now leaves the `<script>` elements
+  of the theme out of the HTML it sends to the frame, so the browser has nothing to report.
+  Only the response of the editor changes: the page of `build`, and the match between a preview
+  and a built page apart from those elements, are as before. Limits: the removal is textual,
+  not a parse, and relies on the composer escaping every `<script` of a page's text (it skips
+  HTML comments and look-alike tags); an element that is never closed is left in place (and
+  reported by the browser as before). A page with an `embed` still puts an iframe with its own
+  sandbox inside the preview frame, and the browser may report that one; this was not tested.
+  The fix was checked by tests and mutation runs, not yet in a browser.
+
 ## [0.2.1] - 2026-11-20
 
 This release adds the first phase of the local editor, `anaquel studio`. It is numbered 0.2.1 and not 0.3.0 because it does not change the library format or the engine line: a library with `engine = "0.2"` opens as before, and nothing in `anaquel.toml` has to be edited. Before 1.0 a new minor would have made every such library refuse to open.
