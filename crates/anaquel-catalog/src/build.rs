@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_schema::{LibraryManifest, is_language_tag, parse_page, url_segment_problem};
+use rayon::prelude::*;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::model::{
@@ -71,17 +72,13 @@ pub(crate) fn build(
             let library_path = format!("{folder}/{}", file.as_str());
             files.insert(library_path, format!("/{address}/{}", file.as_str()));
         }
-        for page in &source.pages {
-            if let Some(entry) = read_entry(
-                volume_index,
-                (&folder, &address, &source.slug),
-                page,
-                headings_of,
-                &mut report,
-            ) {
-                entries.push(entry);
-            }
-        }
+        entries.extend(read_entries(
+            volume_index,
+            (&folder, &address, &source.slug),
+            &source.pages,
+            headings_of,
+            &mut report,
+        ));
         volumes.push(Volume {
             slug: source.slug,
             shelf: source.shelf,
@@ -271,6 +268,34 @@ fn check_case_collisions(source: &VolumeSource, report: &mut Report) {
             );
         }
     }
+}
+
+/// Reads every page of one volume, on all the threads of the current rayon pool.
+///
+/// Each page is read on its own with a report of its own and the results are joined in page
+/// order, so the entries and the diagnostics come out exactly as a serial loop would give them,
+/// whatever the number of threads.
+fn read_entries(
+    volume: usize,
+    names: (&str, &str, &str),
+    pages: &[PageSource],
+    headings_of: &HeadingsOf<'_>,
+    report: &mut Report,
+) -> Vec<Entry> {
+    let read: Vec<(Option<Entry>, Report)> = pages
+        .par_iter()
+        .map(|page| {
+            let mut page_report = Report::new();
+            let entry = read_entry(volume, names, page, headings_of, &mut page_report);
+            (entry, page_report)
+        })
+        .collect();
+    let mut entries = Vec::with_capacity(read.len());
+    for (entry, page_report) in read {
+        report.extend(page_report);
+        entries.extend(entry);
+    }
+    entries
 }
 
 fn read_entry(

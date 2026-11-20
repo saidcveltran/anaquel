@@ -47,6 +47,7 @@ dependencies = [
  "anaquel-directive",
  "anaquel-schema",
  "blake3",
+ "rayon",
  "unicode-normalization",
 ]
 

@@ -1,9 +1,10 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anaquel_catalog::{LogicalPath, PageSource, ShelfSource, VolumeSource};
 use anaquel_diagnostics::{Code, Diagnostic, Report};
 use anaquel_schema::{LibraryManifest, ShelfManifest, VolumeManifest};
+use rayon::prelude::*;
 use walkdir::WalkDir;
 
 /// Largest Markdown file read, in bytes. Bounds memory on hostile input.
@@ -202,72 +203,25 @@ fn read_volume(
 
     let mut pages = Vec::new();
     let mut files = Vec::new();
-    for item in WalkDir::new(dir)
-        .follow_links(false)
-        .sort_by_file_name()
-        .min_depth(1)
-    {
-        let item = match item {
-            Ok(item) => item,
-            Err(error) => {
-                report.push(Diagnostic::error(Code::IO, error.to_string()));
-                continue;
+    // The pages are read on all threads; the walk order decides where everything lands.
+    let read: Vec<Read> = walk_volume(dir, &folder)
+        .into_par_iter()
+        .map(Found::read)
+        .collect();
+    for item in read {
+        match item {
+            Read::Note(note) => report.push(note),
+            Read::File(path) => files.push(path),
+            Read::Page {
+                path,
+                text,
+                report: page_report,
+            } => {
+                report.extend(page_report);
+                if let Some(text) = text {
+                    pages.push(PageSource { path, text });
+                }
             }
-        };
-        let relative = item.path().strip_prefix(dir).unwrap_or(item.path());
-        let Some(relative_text) = relative.to_str() else {
-            report.push(Diagnostic::error(
-                Code::IO,
-                format!("file name is not UTF-8: {}", item.path().display()),
-            ));
-            continue;
-        };
-        let relative_text = relative_text.replace('\\', "/");
-        if relative_text.split('/').any(|part| part.starts_with('.'))
-            || relative_text == "volume.toml"
-        {
-            continue;
-        }
-        if item.path_is_symlink() {
-            report.push(
-                Diagnostic::info(Code::IO, "symbolic links are not followed")
-                    .at(format!("{folder}/{relative_text}")),
-            );
-            continue;
-        }
-        if !item.file_type().is_file() {
-            continue;
-        }
-        let logical = match LogicalPath::new(&relative_text) {
-            Ok(path) => path,
-            Err(reason) => {
-                report.push(
-                    Diagnostic::error(Code::IO, reason).at(format!("{folder}/{relative_text}")),
-                );
-                continue;
-            }
-        };
-        if let Some(bad) = relative_text.chars().find(|c| matches!(c, '#' | '%' | '?')) {
-            report.push(
-                Diagnostic::error(
-                    Code::IO,
-                    format!("`{bad}` in a file or folder name would end or change its address"),
-                )
-                .with_help("rename it; letters, digits, spaces and `- _ . ( ) , ;` are fine")
-                .at(format!("{folder}/{relative_text}")),
-            );
-            continue;
-        }
-        if relative_text.to_ascii_lowercase().ends_with(".md") {
-            if let Some(text) = read_page(item.path(), &format!("{folder}/{relative_text}"), report)
-            {
-                pages.push(PageSource {
-                    path: logical,
-                    text,
-                });
-            }
-        } else {
-            files.push(logical);
         }
     }
     Some(VolumeSource {
@@ -277,6 +231,120 @@ fn read_volume(
         pages,
         files,
     })
+}
+
+/// One thing the walk of a volume found, in the order the walk met it.
+enum Found {
+    /// A problem with a name, a link or a walk step; nothing is left to read.
+    Note(Diagnostic),
+    /// A file that is not a page.
+    File(LogicalPath),
+    /// A Markdown file still to be read from `disk`; `name` is how reports call it.
+    Page {
+        path: LogicalPath,
+        disk: PathBuf,
+        name: String,
+    },
+}
+
+/// What a [`Found`] came to once read.
+enum Read {
+    Note(Diagnostic),
+    File(LogicalPath),
+    /// A page, its text when it could be read, and the problems met reading it.
+    Page {
+        path: LogicalPath,
+        text: Option<String>,
+        report: Report,
+    },
+}
+
+impl Found {
+    fn read(self) -> Read {
+        match self {
+            Self::Note(note) => Read::Note(note),
+            Self::File(path) => Read::File(path),
+            Self::Page { path, disk, name } => {
+                let mut report = Report::new();
+                let text = read_page(&disk, &name, &mut report);
+                Read::Page { path, text, report }
+            }
+        }
+    }
+}
+
+/// Lists what a volume folder holds, in file-name order, without reading any page.
+///
+/// `folder` is the volume folder as the library names it, for the reports.
+fn walk_volume(dir: &Path, folder: &str) -> Vec<Found> {
+    let mut found = Vec::new();
+    for item in WalkDir::new(dir)
+        .follow_links(false)
+        .sort_by_file_name()
+        .min_depth(1)
+    {
+        let item = match item {
+            Ok(item) => item,
+            Err(error) => {
+                found.push(Found::Note(Diagnostic::error(Code::IO, error.to_string())));
+                continue;
+            }
+        };
+        let relative = item.path().strip_prefix(dir).unwrap_or(item.path());
+        let Some(relative_text) = relative.to_str() else {
+            found.push(Found::Note(Diagnostic::error(
+                Code::IO,
+                format!("file name is not UTF-8: {}", item.path().display()),
+            )));
+            continue;
+        };
+        let relative_text = relative_text.replace('\\', "/");
+        if relative_text.split('/').any(|part| part.starts_with('.'))
+            || relative_text == "volume.toml"
+        {
+            continue;
+        }
+        if item.path_is_symlink() {
+            found.push(Found::Note(
+                Diagnostic::info(Code::IO, "symbolic links are not followed")
+                    .at(format!("{folder}/{relative_text}")),
+            ));
+            continue;
+        }
+        if !item.file_type().is_file() {
+            continue;
+        }
+        let logical = match LogicalPath::new(&relative_text) {
+            Ok(path) => path,
+            Err(reason) => {
+                found.push(Found::Note(
+                    Diagnostic::error(Code::IO, reason).at(format!("{folder}/{relative_text}")),
+                ));
+                continue;
+            }
+        };
+        if let Some(bad) = relative_text.chars().find(|c| matches!(c, '#' | '%' | '?')) {
+            found.push(Found::Note(
+                Diagnostic::error(
+                    Code::IO,
+                    format!("`{bad}` in a file or folder name would end or change its address"),
+                )
+                .with_help("rename it; letters, digits, spaces and `- _ . ( ) , ;` are fine")
+                .at(format!("{folder}/{relative_text}")),
+            ));
+            continue;
+        }
+        if relative_text.to_ascii_lowercase().ends_with(".md") {
+            found.push(Found::Page {
+                path: logical,
+                disk: item.into_path(),
+                name: format!("{folder}/{relative_text}"),
+            });
+        } else {
+            found.push(Found::File(logical));
+        }
+    }
+    found
 }
 
 fn read_page(path: &Path, name: &str, report: &mut Report) -> Option<String> {
