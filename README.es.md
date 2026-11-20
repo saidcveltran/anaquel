@@ -12,7 +12,7 @@
 **Markdown de entrada. Un sitio de documentación estático, estricto y rápido de salida.**
 
 [![CI](https://github.com/saidcveltran/anaquel/actions/workflows/ci.yml/badge.svg)](https://github.com/saidcveltran/anaquel/actions/workflows/ci.yml)
-<img src="https://img.shields.io/badge/Estado-temprano%200.1-1F7A63?style=flat" alt="Estado: temprano, versión 0.1">
+<img src="https://img.shields.io/badge/Estado-temprano%200.2-1F7A63?style=flat" alt="Estado: temprano, versión 0.2">
 [![Licencia](https://img.shields.io/badge/Licencia-Apache--2.0-0F1B2D?style=flat)](LICENSE)
 [![Versión](https://img.shields.io/github/v/release/saidcveltran/anaquel?include_prereleases&label=Versi%C3%B3n&color=1F7A63&style=flat)](https://github.com/saidcveltran/anaquel/releases)
 <img src="https://img.shields.io/badge/Windows-compila%20en%20CI-0F1B2D?style=flat&logo=windows11&logoColor=white" alt="Windows compila en CI">
@@ -54,7 +54,7 @@ Cada dependencia está fijada a una versión exacta. [THIRD-PARTY.md](THIRD-PART
 
 ## In English
 
-**Anaquel** is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. It is early (version 0.1), has no release and no manual. The full English version is [README.md](README.md). The documentation of the project is in English; this file is its Spanish translation.
+**Anaquel** is a documentation engine written in Rust that turns Markdown into a static site that any web host can serve, with no AI in the product. It is early (version 0.2; the latest release is 0.2.1) and has no manual. The full English version is [README.md](README.md). The documentation of the project is in English; this file is its Spanish translation.
 
 ## Contenido
 
@@ -159,7 +159,7 @@ Hechos tal como los conozco; comprueba cada proyecto antes de decidir.
 | Necesita Node y npm | No | No | No | Sí | No |
 | Licencia | Apache-2.0 | Apache-2.0 | MPL-2.0 | MIT | Servicio propietario |
 | El build se detiene ante un enlace roto | Sí | No por defecto | Necesita una herramienta extra | Necesita un complemento extra | No aplica |
-| Madurez | 0.1, un mantenedor | Años de versiones | Años de versiones | Años de versiones | Producto comercial |
+| Madurez | 0.2, un mantenedor | Años de versiones | Años de versiones | Años de versiones | Producto comercial |
 
 La última fila es la que cuenta hoy.
 
@@ -179,7 +179,7 @@ Una biblioteca sintética de 10 368 páginas (un archivo Markdown por página, c
 
 ## Cuándo no usar Anaquel
 
-- Necesitas algo que funcione hoy en producción: Anaquel está en la 0.1 y no tiene manual.
+- Necesitas algo que funcione hoy en producción: Anaquel está en la 0.2 y no tiene manual.
 - Dependes de un ecosistema grande de temas, complementos e importadores: no existe, y una sola persona mantiene el proyecto.
 - Necesitas documentación versionada o una referencia OpenAPI: están previstas, no construidas. Varios idiomas funcionan desde la 0.2.
 - Quieres búsqueda sin instalar otro programa: Pagefind es externo.
@@ -220,7 +220,7 @@ El código `unsafe` está prohibido, la documentación que falta es un error y c
 
 ## Preguntas frecuentes
 
-**¿Está listo para usar?** No. Es la versión 0.1, la primera publicada. Compila y sus pruebas pasan en CI en tres sistemas.
+**¿Está listo para usar?** No. Es la versión 0.2, una versión temprana. Compila y sus pruebas pasan en CI en Linux y Windows.
 
 **¿Usa IA?** No. No hay IA en el producto, ni en el build, ni en el sitio que escribe.
 

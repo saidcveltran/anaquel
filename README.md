@@ -12,7 +12,7 @@ English | [Español](README.es.md)
 **Markdown in. A strict, fast, static documentation site out.**
 
 [![CI](https://github.com/saidcveltran/anaquel/actions/workflows/ci.yml/badge.svg)](https://github.com/saidcveltran/anaquel/actions/workflows/ci.yml)
-<img src="https://img.shields.io/badge/Status-early%200.1-1F7A63?style=flat" alt="Status: early, version 0.1">
+<img src="https://img.shields.io/badge/Status-early%200.2-1F7A63?style=flat" alt="Status: early, version 0.2">
 [![License](https://img.shields.io/badge/License-Apache--2.0-0F1B2D?style=flat)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/saidcveltran/anaquel?include_prereleases&label=Release&color=1F7A63&style=flat)](https://github.com/saidcveltran/anaquel/releases)
 <img src="https://img.shields.io/badge/Windows-builds%20in%20CI-0F1B2D?style=flat&logo=windows11&logoColor=white" alt="Windows builds in CI">
@@ -54,7 +54,7 @@ Every dependency is pinned to an exact version. [THIRD-PARTY.md](THIRD-PARTY.md)
 
 ## En español
 
-**Anaquel** es un motor de documentación escrito en Rust: convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros); los **Estantes** (Shelves), que agrupan tomos, están previstos. El build se detiene ante enlaces rotos, anclas rotas, URL duplicadas y términos desconocidos. Está en desarrollo temprano, sin versión publicada y sin manual. La versión completa en español está en [README.es.md](README.es.md).
+**Anaquel** es un motor de documentación escrito en Rust: convierte Markdown en un sitio estático que cualquier alojamiento web puede servir, sin IA en el producto. Un sitio es una **Biblioteca** (Library) hecha de **Tomos** (Volumes, los libros); los **Estantes** (Shelves), que agrupan tomos, están previstos. El build se detiene ante enlaces rotos, anclas rotas, URL duplicadas y términos desconocidos. Está en desarrollo temprano (versión 0.2; la última publicada es la 0.2.1) y sin manual. La versión completa en español está en [README.es.md](README.es.md).
 
 ## Contents
 
@@ -159,7 +159,7 @@ Facts as I know them; check each project before you decide.
 | Needs Node and npm | No | No | No | Yes | No |
 | Licence | Apache-2.0 | Apache-2.0 | MPL-2.0 | MIT | Proprietary service |
 | Build stops on a broken link | Yes | Not by default | Needs an extra tool | Needs an extra plugin | Not applicable |
-| Maturity | 0.1, one maintainer | Years of releases | Years of releases | Years of releases | Commercial product |
+| Maturity | 0.2, one maintainer | Years of releases | Years of releases | Years of releases | Commercial product |
 
 The last row is the one that matters today.
 
@@ -179,7 +179,7 @@ One synthetic library of 10 368 pages (a Markdown file per page with a title, a 
 
 ## When not to use Anaquel
 
-- You need something that works in production today: Anaquel is at 0.1 and has no manual.
+- You need something that works in production today: Anaquel is at 0.2 and has no manual.
 - You rely on a large ecosystem of themes, plugins and importers: there are none, and one person maintains the project.
 - You need versioned docs or an OpenAPI reference: they are planned, not built. Several languages work since 0.2.
 - You want search without installing another program: Pagefind is external.
@@ -220,7 +220,7 @@ python -I tools/check_images.py
 
 ## FAQ
 
-**Is it ready to use?** No. It is version 0.1, the first release. It builds and its tests pass in CI on three systems.
+**Is it ready to use?** No. It is version 0.2, an early release. It builds and its tests pass in CI on Linux and Windows.
 
 **Does it use AI?** No. There is no AI in the product, in the build or in the site it writes.
 
