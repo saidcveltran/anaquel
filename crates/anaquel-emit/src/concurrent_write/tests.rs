@@ -282,3 +282,148 @@ fn names_that_only_share_a_beginning_are_not_a_conflict() {
     refuse_file_folder_conflicts(&set).unwrap();
     refuse_file_folder_conflicts(&[]).unwrap();
 }
+
+// ----- the blocks of lanes -----------------------------------------------------------------------
+
+/// Every run a queue hands out, taken by one thread until it answers `None`.
+fn drain(queue: &BlockQueue) -> Vec<Range<usize>> {
+    std::iter::from_fn(|| queue.claim()).collect()
+}
+
+#[test]
+fn a_block_is_a_quarter_of_a_writers_share_and_never_empty() {
+    // (lanes, workers, block)
+    for (lanes, workers, expected) in [
+        (0, 8, 1),
+        (1, 8, 1),
+        (CONCURRENCY_THRESHOLD, 8, 2),
+        (600, 8, 19),
+        (10_377, 8, 325),
+        (10_377, 4, 649),
+        (100, 1, 25),
+        (7, 0, 2),
+        (100, usize::MAX, 1),
+    ] {
+        assert_eq!(
+            BlockQueue::new(lanes, workers).block,
+            expected,
+            "{lanes} lanes, {workers} workers"
+        );
+    }
+}
+
+#[test]
+fn the_claims_tile_every_lane_once_in_order_and_then_stop() {
+    for lanes in [0, 1, 2, 7, 63, 64, 65, 600, 10_377] {
+        for workers in [1, 2, 3, 8] {
+            let queue = BlockQueue::new(lanes, workers);
+            let claims = drain(&queue);
+            let mut expected_start = 0;
+            for claim in &claims {
+                assert_eq!(
+                    claim.start, expected_start,
+                    "{lanes} lanes, {workers} workers"
+                );
+                assert!(!claim.is_empty() && claim.len() <= queue.block);
+                expected_start = claim.end;
+            }
+            assert_eq!(expected_start, lanes, "{lanes} lanes, {workers} workers");
+            assert!(queue.claim().is_none() && queue.claim().is_none());
+        }
+    }
+}
+
+#[test]
+fn only_the_last_block_may_be_shorter_than_the_others() {
+    let queue = BlockQueue::new(10_377, 8);
+    let claims = drain(&queue);
+    let (last, rest) = claims.split_last().unwrap();
+    assert!(rest.iter().all(|claim| claim.len() == queue.block));
+    assert_eq!(last.len(), 10_377 - rest.len() * queue.block);
+}
+
+#[test]
+fn a_writer_claims_a_few_runs_and_not_one_lane_at_a_time() {
+    // The point of the blocks: far fewer claims than lanes, so a writer stays in a few folders.
+    let queue = BlockQueue::new(10_000, MAX_WRITERS);
+    let claims = drain(&queue).len();
+    assert!(
+        claims <= MAX_WRITERS * BLOCKS_PER_WRITER,
+        "{claims} claims for 10 000 lanes"
+    );
+    assert!(
+        claims >= MAX_WRITERS,
+        "every writer gets at least one: {claims}"
+    );
+}
+
+#[test]
+fn eight_threads_claiming_at_once_get_disjoint_runs_that_tile_the_lanes() {
+    for _ in 0..20 {
+        let queue = BlockQueue::new(10_377, 8);
+        let mut claims: Vec<Range<usize>> = thread::scope(|scope| {
+            let handles: Vec<_> = (0..8).map(|_| scope.spawn(|| drain(&queue))).collect();
+            handles
+                .into_iter()
+                .flat_map(|handle| handle.join().unwrap())
+                .collect()
+        });
+        claims.sort_by_key(|claim| claim.start);
+        let mut next = 0;
+        for claim in &claims {
+            assert_eq!(claim.start, next, "a gap or an overlap before {claim:?}");
+            next = claim.end;
+        }
+        assert_eq!(next, 10_377);
+    }
+}
+
+#[test]
+fn no_writer_count_below_two_leaves_a_file_unwritten() {
+    // "The calling thread when `workers` is 1 or less": zero must not mean no thread at all.
+    for workers in [0, 1] {
+        let dist = scratch(&format!("workers-{workers}"));
+        let files = many_files(100);
+        let jobs = jobs(&dist, &files);
+        write_lanes(&jobs, &plan_lanes(&jobs), workers).unwrap();
+        assert_eq!(snapshot(&dist).len(), files.len(), "{workers} workers");
+        fs::remove_dir_all(&dist).unwrap();
+    }
+}
+
+#[test]
+fn just_above_the_threshold_every_file_is_still_written_whole() {
+    // 65 lanes and eight writers: blocks of three, the last one with two lanes.
+    let dist = scratch("just-above-threshold");
+    let files = many_files(CONCURRENCY_THRESHOLD + 1);
+    let jobs = jobs(&dist, &files);
+    write_lanes(&jobs, &plan_lanes(&jobs), 8).unwrap();
+    let written = snapshot(&dist);
+    assert_eq!(written.len(), files.len());
+    for output in &files {
+        assert_eq!(written[&output.path], output.bytes, "{}", output.path);
+    }
+    fs::remove_dir_all(&dist).unwrap();
+}
+
+#[test]
+fn a_failure_inside_a_block_does_not_stop_the_lanes_after_it_in_that_block() {
+    // 200 lanes and eight writers give blocks of seven: the failing lane 10 has lanes 7 to 13 around it.
+    let dist = scratch("failure-in-block");
+    let files: Vec<OutputFile> = (0..200)
+        .map(|n| file(&format!("f{n:03}.txt"), "x"))
+        .collect();
+    block(&dist, "f010.txt");
+    let jobs = jobs(&dist, &files);
+    let lanes = plan_lanes(&jobs);
+    assert_eq!(BlockQueue::new(lanes.len(), 8).block, 7);
+    assert!(write_lanes(&jobs, &lanes, 8).is_err());
+    for n in 7..14 {
+        assert_eq!(
+            dist.join(format!("f{n:03}.txt")).is_file(),
+            n != 10,
+            "f{n:03}.txt"
+        );
+    }
+    fs::remove_dir_all(&dist).unwrap();
+}
