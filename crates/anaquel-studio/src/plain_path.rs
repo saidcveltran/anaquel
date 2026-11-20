@@ -54,7 +54,7 @@ mod tests {
         for path in [
             r"C:\AIS\library",
             r"\\host\share",
-            "/home/ana/library",
+            "/srv/library",
             "relative/dir",
             "",
         ] {
