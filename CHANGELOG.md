@@ -13,12 +13,13 @@ All notable changes to this project are written here. The format follows
   result on disk is the one of writing them in sequence. Sets of fewer than 64 distinct paths
   are still written by the calling thread (the count is of files to write, one per distinct
   path, not of all files of the site). Measured on one Windows PC, building a synthetic
-  library of 10 368 pages (alternating runs): the whole build went from 23.1, 28.5 and 25.1 s
-  to 22.2, 23.4 and 23.5 s, and the write phase from 23.4 and 25.0 s with one thread to 20.4 and
-  21.8 s with eight in one series, and from 52 to 54 s to 23 to 27 s in a later series when the
-  disk was slower. A stand-in for the writer outside the engine gained 3 to 5 times; the gap
-  to the engine is not explained. Linux gained at most 1.3 times with the stand-in (Docker
-  Desktop, not a CI runner); the engine is not measured there. Names that Windows stores as
+  library of 10 368 pages, both programs run from the same temporary folder, alternating runs:
+  the whole build took 20.2, 19.2, 42.5 and 41.3 s before and 9.6, 14.1, 12.8 and 13.4 s after,
+  which is 1.4 to 3.3 times faster pair by pair. The ratio varies because the disk and the
+  antivirus change the speed of file creation from one run to the next. The same programs ran
+  two to three times slower from a folder under `C:\AIS` than from a temporary folder on that PC;
+  the cause is not known. Linux gained at most 1.3 times with a stand-in for the writer (Docker Desktop, not a
+  CI runner); the engine is not measured there. Names that Windows stores as
   one file are written in order: they differ only in case (`to_lowercase`), in trailing dots or
   spaces, or in an NTFS stream (`name:stream`). Not covered: Unicode normalization, 8.3 short
   names, reserved device names such as `CON`, a folder already on disk under an equivalent
