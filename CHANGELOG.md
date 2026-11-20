@@ -35,12 +35,21 @@ All notable changes to this project are written here. The format follows
   machine on that PC (ext4, 6 virtual CPUs), 1.50 s before and 1.30 s after (median of 12
   alternating pairs; better in 11 of 12, 1.16 times, between 0.94 and 1.33 times without a pair
   in which the old program took 4.91 s), with the same 10 378 output files byte for byte. A
-  microbenchmark of the writing alone gave 2.25 times on Linux. Limits: one Windows PC and one
-  virtual machine, not CI runners; the explanation (the file system serialises the creation of
-  entries of one folder) fits the measurements but is not proven; a folder with thousands of
-  files directly in it keeps the writers together, and a lane that holds many writes of one path
-  delays the rest of its run; the microbenchmark with the old way of claiming gave 1.56 times on
-  Linux against 1.07 times for the engine, and that gap is not explained.
+  microbenchmark of the writing alone gave 2.25 times on Linux (the old way of claiming against
+  the new one, 8 threads each, the comparison that matches the 1.16 of the engine). Limits: one
+  Windows PC and one virtual machine, not CI runners; the explanation (the file system
+  serialises the creation of entries of one folder) fits the measurements but is not proven; a
+  folder with thousands of files directly in it keeps the writers together, and a lane that
+  holds many writes of one path delays the rest of its run; the writing is about half of the
+  build (0.46 to 0.73 of the time with one thread, 3 runs), which caps the engine at about 1.9
+  times, and with that share the 2.25 of the microbenchmark predicts 1.34 to 1.42 for the engine
+  against the 1.16 measured (interval 1.07 to 1.27), so a residual of about 0.13 s may remain;
+  the share is too uncertain to say whether that residual is real. The 1.56 times that an
+  earlier note set against 1.07 for the engine compared different things (one thread against 8
+  in the microbenchmark; 3 runs of the probe in the engine, not distinguishable from 1.0). In the
+  virtual machine one of 8 runs of a mkdir-only microbenchmark with 8 threads took 2445 s with
+  11 490 s of system time; the cause is unknown, and none of the 24 engine runs of the 12 pairs
+  in the virtual machine took longer than 4.91 s.
 - The build checks every output path before it writes the first file. A set with an unsafe
   path, or with a path that is both a file and the folder of another one, now writes nothing
   and says which path is the cause; before, the files ahead of the bad one were already on disk.
