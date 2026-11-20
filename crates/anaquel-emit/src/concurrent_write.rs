@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, PoisonError};
@@ -133,6 +134,48 @@ fn writers_for(lanes: usize, cores: usize) -> usize {
     cores.clamp(1, MAX_WRITERS).min(lanes)
 }
 
+/// How many blocks of lanes each writer claims on average. Blocks are large enough for a writer to
+/// stay inside a few folders, and small enough for the last ones not to leave the other writers
+/// idle: with four per writer, the slowest block is a quarter of one writer's share.
+const BLOCKS_PER_WRITER: usize = 4;
+
+/// Hands out runs of consecutive lanes to the writers, one run per claim.
+///
+/// Lanes come in the order of the files the caller hands over, and the build hands them over
+/// sorted by path, so consecutive lanes are neighbours in the folder tree. A writer that holds a
+/// run creates files and folders in a few folders, and the runs held at one moment are different
+/// folders as long as a folder has fewer lanes than a run. Handing out one lane at a time sent all
+/// the writers into the same folder at once, and the measurements (see the changelog) point at
+/// the file system serialising the creation of the entries of one folder as the cause.
+///
+/// The order only decides the speed, never the result: any order writes the same files. A folder
+/// with thousands of files directly in it keeps the writers together whatever the run, because the
+/// run then lies inside that one folder.
+struct BlockQueue {
+    next: AtomicUsize,
+    lanes: usize,
+    block: usize,
+}
+
+impl BlockQueue {
+    fn new(lanes: usize, workers: usize) -> Self {
+        let block = lanes
+            .div_ceil(workers.max(1).saturating_mul(BLOCKS_PER_WRITER))
+            .max(1);
+        Self {
+            next: AtomicUsize::new(0),
+            lanes,
+            block,
+        }
+    }
+
+    /// The next run of lane indices, or `None` when every lane has been handed out.
+    fn claim(&self) -> Option<Range<usize>> {
+        let start = self.next.fetch_add(self.block, Ordering::Relaxed);
+        (start < self.lanes).then(|| start..(start + self.block).min(self.lanes))
+    }
+}
+
 /// Writes every job with `workers` threads (the calling thread when `workers` is 1 or less).
 ///
 /// Every lane runs even when another failed, so the error returned does not depend on timing.
@@ -144,18 +187,20 @@ pub(crate) fn write_lanes(
     lanes: &[Vec<usize>],
     workers: usize,
 ) -> Result<(), Diagnostic> {
-    let next_lane = AtomicUsize::new(0);
+    let queue = BlockQueue::new(lanes.len(), workers);
     let failures: Mutex<Vec<(usize, Diagnostic)>> = Mutex::new(Vec::new());
     let work = || {
-        while let Some(lane) = lanes.get(next_lane.fetch_add(1, Ordering::Relaxed)) {
-            for &index in lane {
-                let job = &jobs[index];
-                if let Err(diagnostic) = write_atomically(&job.path, &job.file.bytes) {
-                    failures
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .push((index, diagnostic));
-                    break;
+        while let Some(block) = queue.claim() {
+            for lane in &lanes[block] {
+                for &index in lane {
+                    let job = &jobs[index];
+                    if let Err(diagnostic) = write_atomically(&job.path, &job.file.bytes) {
+                        failures
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .push((index, diagnostic));
+                        break;
+                    }
                 }
             }
         }
