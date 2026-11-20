@@ -379,6 +379,28 @@ fn eight_threads_claiming_at_once_get_disjoint_runs_that_tile_the_lanes() {
 }
 
 #[test]
+fn a_heavily_contended_queue_still_hands_out_every_lane_exactly_once() {
+    // Blocks of one lane and 200 000 lanes make the eight threads fight over the counter, which the
+    // blocks of the real queue (a few dozen claims) hardly do.
+    let lanes = 200_000;
+    let queue = BlockQueue {
+        next: AtomicUsize::new(0),
+        lanes,
+        block: 1,
+    };
+    let mut starts: Vec<usize> = thread::scope(|scope| {
+        let handles: Vec<_> = (0..8).map(|_| scope.spawn(|| drain(&queue))).collect();
+        handles
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .map(|claim| claim.start)
+            .collect()
+    });
+    starts.sort_unstable();
+    assert_eq!(starts, (0..lanes).collect::<Vec<_>>());
+}
+
+#[test]
 fn no_writer_count_below_two_leaves_a_file_unwritten() {
     // "The calling thread when `workers` is 1 or less": zero must not mean no thread at all.
     for workers in [0, 1] {
@@ -407,23 +429,34 @@ fn just_above_the_threshold_every_file_is_still_written_whole() {
 }
 
 #[test]
-fn a_failure_inside_a_block_does_not_stop_the_lanes_after_it_in_that_block() {
-    // 200 lanes and eight writers give blocks of seven: the failing lane 10 has lanes 7 to 13 around it.
-    let dist = scratch("failure-in-block");
-    let files: Vec<OutputFile> = (0..200)
-        .map(|n| file(&format!("f{n:03}.txt"), "x"))
-        .collect();
-    block(&dist, "f010.txt");
-    let jobs = jobs(&dist, &files);
-    let lanes = plan_lanes(&jobs);
-    assert_eq!(BlockQueue::new(lanes.len(), 8).block, 7);
-    assert!(write_lanes(&jobs, &lanes, 8).is_err());
-    for n in 7..14 {
-        assert_eq!(
-            dist.join(format!("f{n:03}.txt")).is_file(),
-            n != 10,
-            "f{n:03}.txt"
+fn two_failures_in_one_block_leave_the_rest_of_it_written_and_report_the_first() {
+    // 200 lanes and eight writers give blocks of seven: lanes 7 to 13 are one block, and lanes 8
+    // and 12 in it fail. The lanes between and after them still run, and the error is the one of
+    // the failing file that comes first in order.
+    for attempt in 0..8 {
+        let dist = scratch("failures-in-block");
+        let files: Vec<OutputFile> = (0..200)
+            .map(|n| file(&format!("f{n:03}.txt"), "x"))
+            .collect();
+        for failing in [12, 8] {
+            block(&dist, &format!("f{failing:03}.txt"));
+        }
+        let jobs = jobs(&dist, &files);
+        let lanes = plan_lanes(&jobs);
+        assert_eq!(BlockQueue::new(lanes.len(), 8).block, 7);
+        let error = write_lanes(&jobs, &lanes, 8).unwrap_err();
+        assert!(
+            error.message.contains("f008.txt"),
+            "attempt {attempt}: {}",
+            error.message
         );
+        for n in 7..14 {
+            assert_eq!(
+                dist.join(format!("f{n:03}.txt")).is_file(),
+                n != 8 && n != 12,
+                "attempt {attempt}: f{n:03}.txt"
+            );
+        }
+        fs::remove_dir_all(&dist).unwrap();
     }
-    fs::remove_dir_all(&dist).unwrap();
 }

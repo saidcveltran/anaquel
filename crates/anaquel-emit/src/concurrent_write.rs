@@ -141,11 +141,16 @@ const BLOCKS_PER_WRITER: usize = 4;
 
 /// Hands out runs of consecutive lanes to the writers, one run per claim.
 ///
-/// Lanes come in the order of the files, which is the order of their paths, so consecutive lanes
-/// are neighbours in the folder tree. A writer that holds a run creates files and folders in a few
-/// folders, and two writers hold runs that are far apart. Handing out one lane at a time sent all
-/// the writers into the same folder at once, and the file system serialises the creation of the
-/// entries of one folder (see the changelog for the measurements).
+/// Lanes come in the order of the files the caller hands over, and the build hands them over
+/// sorted by path, so consecutive lanes are neighbours in the folder tree. A writer that holds a
+/// run creates files and folders in a few folders, and the runs held at one moment are different
+/// folders as long as a folder has fewer lanes than a run. Handing out one lane at a time sent all
+/// the writers into the same folder at once, and the measurements (see the changelog) point at
+/// the file system serialising the creation of the entries of one folder as the cause.
+///
+/// The order only decides the speed, never the result: any order writes the same files. A folder
+/// with thousands of files directly in it keeps the writers together whatever the run, because the
+/// run then lies inside that one folder.
 struct BlockQueue {
     next: AtomicUsize,
     lanes: usize,

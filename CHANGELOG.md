@@ -24,6 +24,23 @@ All notable changes to this project are written here. The format follows
   spaces, or in an NTFS stream (`name:stream`). Not covered: Unicode normalization, 8.3 short
   names, reserved device names such as `CON`, a folder already on disk under an equivalent
   name, and another program writing in the output folder.
+- The writers of the build now claim runs of consecutive files instead of one file at a time
+  (a run is a quarter of one writer's share of the files). The files come sorted by path, so a
+  run stays in a few folders and the writers no longer create entries in the same folder at the
+  same moment, which is where the file system of the test machines was serialising them. The
+  result on disk is the same. Measured with the 10 368-page library, both programs run from the
+  same ordinary folder, in alternating order: on Windows, 9.87 s before and 6.43 s after (median
+  of runs 2 to 6; better in 6 of 6 rounds, 1.54 times; the first run of the old program took
+  96.29 s and is left out of the medians, the cause is not verified); in a Debian 13 virtual
+  machine on that PC (ext4, 6 virtual CPUs), 1.50 s before and 1.30 s after (median of 12
+  alternating pairs; better in 11 of 12, 1.16 times, between 0.94 and 1.33 times without a pair
+  in which the old program took 4.91 s), with the same 10 378 output files byte for byte. A
+  microbenchmark of the writing alone gave 2.25 times on Linux. Limits: one Windows PC and one
+  virtual machine, not CI runners; the explanation (the file system serialises the creation of
+  entries of one folder) fits the measurements but is not proven; a folder with thousands of
+  files directly in it keeps the writers together, and a lane that holds many writes of one path
+  delays the rest of its run; the microbenchmark with the old way of claiming gave 1.56 times on
+  Linux against 1.07 times for the engine, and that gap is not explained.
 - The build checks every output path before it writes the first file. A set with an unsafe
   path, or with a path that is both a file and the folder of another one, now writes nothing
   and says which path is the cause; before, the files ahead of the bad one were already on disk.
