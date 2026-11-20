@@ -260,7 +260,8 @@ fn tree_of(dir: &Path) -> BTreeMap<String, Vec<u8>> {
 fn the_hostile_library_is_analysed_as_recorded_with_any_thread_count() {
     let s = Scratch::new("equivalence-golden");
     hostile_library(&s);
-    if std::env::var_os("ANAQUEL_BLESS_GOLDEN").is_some() {
+    // Only the exact value `1` records; any other value, set by accident, still compares.
+    if std::env::var("ANAQUEL_BLESS_GOLDEN").is_ok_and(|value| value == "1") {
         // The reference is compiled in, so a recorded one is compared by the next run.
         let text = within_pool(1, || analysis_text(&s.0));
         fs::write(GOLDEN_PATH, text).expect("the reference is written");
@@ -351,5 +352,41 @@ fn the_built_site_is_the_same_file_by_file_with_any_thread_count() {
                 "{threads} thread(s): `{path}` differs from the serial site"
             );
         }
+    }
+}
+
+/// Symbolic links cannot be made without a privilege on Windows, so they have a test of their own,
+/// for the systems that can: each is reported once, never followed, in the same place whatever the
+/// number of threads.
+#[cfg(unix)]
+#[test]
+fn symbolic_links_are_reported_the_same_with_any_thread_count() {
+    use std::os::unix::fs::symlink;
+
+    let s = Scratch::new("equivalence-links");
+    crate::tests::library(&s);
+    symlink("setup.md", s.0.join("volumes/guide/alias-of-setup.md")).expect("a file link is made");
+    symlink("img", s.0.join("volumes/guide/linked-folder")).expect("a folder link is made");
+
+    let serial = within_pool(1, || analysis_text(&s.0));
+    // Two links, each in the report as produced and in the one `check` prints.
+    assert_eq!(serial.matches("symbolic links are not followed").count(), 4);
+    let mut report = Report::new();
+    let analysis = analyse(&s.0, &mut report).expect("the library is readable");
+    assert!(
+        analysis
+            .catalog
+            .entries()
+            .iter()
+            .all(|entry| entry.source.as_str() != "volumes/guide/alias-of-setup.md"),
+        "a link is not a page"
+    );
+    for threads in THREAD_COUNTS {
+        let text = within_pool(threads, || analysis_text(&s.0));
+        assert!(
+            text == serial,
+            "links under {threads} thread(s) differ from the serial run at line {}",
+            first_difference(&serial, &text)
+        );
     }
 }
