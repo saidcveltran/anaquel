@@ -163,6 +163,20 @@ Facts as I know them; check each project before you decide.
 
 The last row is the one that matters today.
 
+### Build time, measured
+
+One synthetic library of 10 368 pages (a Markdown file per page with a title, a few headings, a list and a code block) built with a development build of Anaquel after 0.2.1, Hugo 0.170.1 and Zola 0.23.6. Twelve rounds, the order of the three programs changing every round, all three run from the same folder; medians of the wall time:
+
+| | Anaquel | Hugo | Zola |
+| --- | --- | --- | --- |
+| Debian 13 virtual machine, ext4 | 1.45 s | 8.53 s | 2.59 s |
+| Windows 11 PC | 23.2 s | 27.8 s | 16.6 s |
+
+- On Linux, Anaquel was faster than Hugo in 12 of 12 rounds. Against Zola it was faster in 9 of 12, which cannot be told apart from chance.
+- On Windows the times are dominated by how slowly this PC creates files (the same Anaquel build took 6.4 s in another folder of the same PC), so they say little about the programs themselves. Zola was fastest there.
+- Hugo and Zola ran with the smallest theme that writes one page per file. The Anaquel theme does more work, and its output is about five times larger (95 MiB against 20 and 19).
+- One PC and one virtual machine on it. Search, larger pages and other sizes were not measured. Figures that third parties have published for Hugo are far lower, on other machines and with other content.
+
 ## When not to use Anaquel
 
 - You need something that works in production today: Anaquel is at 0.1 and has no manual.

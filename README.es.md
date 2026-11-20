@@ -163,6 +163,20 @@ Hechos tal como los conozco; comprueba cada proyecto antes de decidir.
 
 La última fila es la que cuenta hoy.
 
+### Tiempo de compilación, medido
+
+Una biblioteca sintética de 10 368 páginas (un archivo Markdown por página, con título, unos encabezados, una lista y un bloque de código) compilada con una versión de desarrollo de Anaquel posterior a la 0.2.1, Hugo 0.170.1 y Zola 0.23.6. Doce rondas, con el orden de los tres programas cambiando en cada una, y los tres ejecutados desde la misma carpeta; medianas del tiempo real:
+
+| | Anaquel | Hugo | Zola |
+| --- | --- | --- | --- |
+| Máquina virtual Debian 13, ext4 | 1,45 s | 8,53 s | 2,59 s |
+| PC con Windows 11 | 23,2 s | 27,8 s | 16,6 s |
+
+- En Linux, Anaquel fue más rápido que Hugo en 12 de 12 rondas. Frente a Zola lo fue en 9 de 12, algo que no se distingue del azar.
+- En Windows los tiempos los domina lo lento que este PC crea archivos (la misma versión de Anaquel tardó 6,4 s en otra carpeta del mismo PC), así que dicen poco de los programas. Zola fue el más rápido allí.
+- Hugo y Zola corrieron con el tema más pequeño que escribe una página por archivo. El tema de Anaquel hace más trabajo y su salida es unas cinco veces mayor (95 MiB frente a 20 y 19).
+- Un solo PC y una máquina virtual dentro de él. No se midieron la búsqueda, páginas más grandes ni otros tamaños. Las cifras que terceros han publicado para Hugo son mucho menores, en otras máquinas y con otro contenido.
+
 ## Cuándo no usar Anaquel
 
 - Necesitas algo que funcione hoy en producción: Anaquel está en la 0.1 y no tiene manual.
